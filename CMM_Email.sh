@@ -48,7 +48,7 @@ required_software
 function required_software
 {
 yum update -y
-yum --enablerepo=centosplus install postfix mailx mutt -y
+yum install postfix mailx mutt -y
 yum install dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel -y
 sleep 5
 create_database
