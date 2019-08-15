@@ -273,7 +273,16 @@ setup_opendkim
 
 function setup_opendkim
 {
-yum install opendkim -y
+if  rpm -q opendkim > /dev/null ; then
+        echo -e $YELLOW"opendkim Installation Found. Skipping Its Installation"$RESET
+        echo " "
+        sleep 10
+        else
+        echo -e $RED"opendkim Installation Not Found. Installing it"$RESET
+        echo " "
+        yum install opendkim -y
+        echo " "
+fi
 
 cat > /etc/opendkim.conf << EOF
 AutoRestart             Yes
@@ -365,6 +374,28 @@ echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/
 echo " "
 }
 
+function setup_spamassassin
+{
+yum install spamassassin -y
+
+#vi /etc/mail/spamassassin/local.cf
+
+groupadd spamd
+useradd -g spamd -s /bin/false -d /var/log/spamassassin spamd
+chown spamd:spamd /var/log/spamassassin
+
+service spamassassin start
+chkconfig spamassassin on
+
+sed -i '/^smtp      inet/ s/$/ -o content_filter=spamassassin -o smtpd_milters=/' /etc/postfix/master.cf
+
+cat >> /etc/postfix/master.cf <<"EOF"
+spamassassin unix - n n - - pipe flags=R user=spamd argv=/usr/bin/spamc -e /usr/sbin/sendmail -oi -f ${sender} ${recipient}
+EOF
+
+service postfix restart
+}
+
 function remove_mail_server
 {
 yum remove postfix mailx mutt -y
@@ -375,6 +406,7 @@ rm -rf /etc/dovecot
 rm -rf /etc/opendkim
 rm -rf /usr/local/nginx/html/roundcube
 userdel -r vmail
+userdel -r spamd
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
 mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
@@ -391,15 +423,17 @@ function start_display
                         while [ "$b" = 1 ]; do
                                 echo -e $YELLOW"Select Option to Setup Mail Server on CMM:"$RESET
                                 echo " "
-                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                echo -e $GREEN"1) Setup MailServer (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                 echo " "
-                                echo -e $GREEN"2) Setup Additonal Domain and Email"$RESET
+                                echo -e $GREEN"2) Setup SpamAssassin for Mailserver"$RESET
                                 echo " "
-                                echo -e $GREEN"3) Retrive DKIM Key for Domain"$RESET
+                                echo -e $GREEN"3) Setup Additonal Domain and Email"$RESET
                                 echo " "
-                                echo -e $GREEN"4) Remove Mail Server"$RESET
+                                echo -e $GREEN"4) Retrive DKIM Key for Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"5) Exit"$RESET
+                                echo -e $GREEN"5) Remove Mail Server"$RESET
+                                echo " "
+                                echo -e $GREEN"6) Exit"$RESET
                                 echo "#?"
 
                                 read input
@@ -412,6 +446,13 @@ function start_display
 
                                         elif [ "$input" = '2' ]; then
                                                 echo " "
+                                                echo -e $BLINK"Installing Spamassassin for Mailserver"$RESET
+                                                echo " "
+                                                sleep 1
+                                                setup_spamassassin
+
+                                        elif [ "$input" = '3' ]; then
+                                                echo " "
                                                 echo -e $BLINK"Add New Email ID"$RESET
                                                 sleep 5
                                                 read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
@@ -419,7 +460,7 @@ function start_display
                                                 read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
                                                 create_email_account
 
-                                        elif [ "$input" = '3' ]; then
+                                        elif [ "$input" = '4' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Retrive DKIM Key For A Domain"$RESET
                                                 echo " "
@@ -433,14 +474,14 @@ function start_display
                                                 echo " "
                                                 echo " "
 
-                                        elif [ "$input" = '4' ]; then
+                                        elif [ "$input" = '5' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Removing Mail Server"$RESET
                                                 echo " "
                                                 sleep 1
                                                 remove_mail_server
 
-                                        elif [ "$input" = '5' ]; then
+                                        elif [ "$input" = '6' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Exiting"$RESET
                                                 echo " "
