@@ -48,9 +48,19 @@ required_software
 function required_software
 {
 yum update -y
-yum install postfix mailx mutt -y
+
+if  rpm -q postfix > /dev/null ; then
+        echo -e $YELLOW"postfix Installation Found. Skipping Its Installation"$RESET
+        echo " "
+        else
+        echo -e $RED"postfix Installation Not Found. Installing it"$RESET
+        echo " "
+        yum install postfix -y
+        echo " "
+fi
+
+yum install mailx mutt -y
 yum install dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel -y
-sleep 5
 create_database
 }
 
@@ -61,7 +71,6 @@ mysql -uroot -p$MYSQL_ROOT -e "CREATE DATABASE mail;"
 mysql -uroot -p$MYSQL_ROOT -e "CREATE USER mail_admin@localhost IDENTIFIED BY '$DATABASE_PASSWORD';"
 mysql -uroot -p$MYSQL_ROOT -e "GRANT ALL PRIVILEGES ON mail.* TO 'mail_admin'@'localhost';"
 mysql -uroot -p$MYSQL_ROOT -e "FLUSH PRIVILEGES;"
-sleep 5
 create_table
 }
 
@@ -72,7 +81,6 @@ mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE domains (domain varchar(50) 
 mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE forwardings (source varchar(80) NOT NULL, destination TEXT NOT NULL, PRIMARY KEY (source) );"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE users (email varchar(80) NOT NULL, password varchar(20) NOT NULL, PRIMARY KEY (email) );"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE transport ( domain varchar(128) NOT NULL default '', transport varchar(128) NOT NULL default '', UNIQUE KEY domain (domain) )"
-sleep 5
 create_email_account
 }
 
@@ -80,7 +88,6 @@ function create_email_account
 {
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO domains (domain) VALUES ('$DOMAIN_NAME');"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
-sleep 5
 if [ "$input" = '2' ]; then
         mkdir /etc/opendkim/keys/$DOMAIN_NAME
         opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
@@ -143,7 +150,6 @@ query = SELECT email FROM users WHERE email='%s'
 hosts = 127.0.0.1
 EOF
 
-sleep 5
 apply_permission
 }
 
@@ -154,7 +160,6 @@ chmod o= /etc/postfix/mysql-virtual_*.cf
 chgrp postfix /etc/postfix/mysql-virtual_*.cf
 groupadd -g 5000 vmail
 useradd -g vmail -u 5000 vmail -d /home/vmail -m
-sleep 5
 postfix_main_configuration
 }
 
@@ -190,7 +195,6 @@ postconf -e 'virtual_maildir_extended = yes'
 postconf -e 'proxy_read_maps = $local_recipient_maps $mydestination $virtual_alias_maps $virtual_alias_domains $virtual_mailbox_maps $virtual_mailbox_domains $relay_recipient_maps $relay_domains $canonical_maps $sender_canonical_maps $recipient_canonical_maps $relocated_maps $transport_maps $mynetworks $virtual_mailbox_limit_maps'
 postconf -e 'virtual_transport = virtual'
 postconf -e 'dovecot_destination_recipient_limit = 1'
-sleep 5
 postfix_master_configuration
 }
 
@@ -201,7 +205,6 @@ echo "
 dovecot   unix  -       n       n       -       -       pipe
     flags=DRhu user=vmail:vmail argv=/usr/libexec/dovecot/deliver -f ${sender} -d ${recipient}
 " >> /etc/postfix/master.cf
-sleep 5
 dovecot_configuration
 }
 
@@ -267,7 +270,6 @@ EOF
 # apply permissions
 chgrp dovecot /etc/dovecot/dovecot-sql.conf
 chmod o= /etc/dovecot/dovecot-sql.conf
-sleep 5
 setup_opendkim
 }
 
@@ -331,7 +333,6 @@ service opendkim start
 chkconfig opendkim on
 service postfix restart
 service dovecot restart
-sleep 5
 setup_roundcube
 }
 
@@ -441,7 +442,7 @@ function start_display
                                         if [ "$input" = '1' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Setting Up Mail server"$RESET
-                                                sleep 5
+                                                sleep 1
                                                 input_data
 
                                         elif [ "$input" = '2' ]; then
@@ -454,7 +455,7 @@ function start_display
                                         elif [ "$input" = '3' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Add New Email ID"$RESET
-                                                sleep 5
+                                                sleep 1
                                                 read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
                                                 read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
                                                 read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
