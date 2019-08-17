@@ -40,6 +40,14 @@ read -p "$(echo -e $GREEN"Enter Your Hostname:"$RESET) " MY_HOST_NAME
 read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
 read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
 read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+
+mkdir /etc/centminmod/cmmemailconfig
+
+cat > /etc/centminmod/cmmemailconfig/email.conf << EOF
+MYHOSTNAME:$MY_HOST_NAME
+MYDOMAINNAME:$DOMAIN_NAME
+EOF
+
 sleep 5
 echo ""
 required_software
@@ -274,10 +282,12 @@ setup_opendkim
 function setup_opendkim
 {
 if  rpm -q opendkim > /dev/null ; then
+        echo " "
         echo -e $YELLOW"opendkim Installation Found. Skipping Its Installation"$RESET
         echo " "
         sleep 10
         else
+        echo " "
         echo -e $RED"opendkim Installation Not Found. Installing it"$RESET
         echo " "
         yum install opendkim -y
@@ -371,11 +381,62 @@ nprestart
 echo " "
 echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
 echo " "
+echo -e $BLINK"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
+echo " "
+echo -e $BLINK"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
+echo  " "
+echo -e $BLINK"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
+echo  " "
 }
 
-function setup_spamassassin
+function setup_amavisd_spamassassin_clamav
 {
-yum install spamassassin -y
+yum install spamassassin amavisd-new clamav clamav-scanner -y
+freshclam
+
+
+MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
+MY_DOMAIN_NAME=$(grep -ir "MYDOMAINNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
+
+sed -i "s/$mydomain = 'example.com'/$mydomain = '$MY_DOMAIN_NAME'/g" /etc/amavisd/amavisd.conf
+sed -i "s/$myhostname = 'host.example.com'/$myhostname = '$MY_HOSTNAME_NAME'/g" /etc/amavisd/amavisd.conf
+
+cat >> /etc/postfix/master.cf << EOF
+
+
+amavisfeed unix    -       -       n        -      2     lmtp
+      -o lmtp_data_done_timeout=1200
+      -o lmtp_send_xforward_command=yes
+      -o lmtp_tls_note_starttls_offer=no
+
+
+127.0.0.1:10025 inet n    -       n       -       -     smtpd
+     -o content_filter=
+     -o smtpd_delay_reject=no
+     -o smtpd_client_restrictions=permit_mynetworks,reject
+     -o smtpd_helo_restrictions=
+     -o smtpd_sender_restrictions=
+     -o smtpd_recipient_restrictions=permit_mynetworks,reject
+     -o smtpd_data_restrictions=reject_unauth_pipelining
+     -o smtpd_end_of_data_restrictions=
+     -o smtpd_restriction_classes=
+     -o mynetworks=127.0.0.0/8
+     -o smtpd_error_sleep_time=0
+     -o smtpd_soft_error_limit=1001
+     -o smtpd_hard_error_limit=1000
+     -o smtpd_client_connection_count_limit=0
+     -o smtpd_client_connection_rate_limit=0
+     -o receive_override_options=no_header_body_checks,no_unknown_recipient_checks,no_milters
+     -o local_header_rewrite_clients=
+     -o smtpd_milters=
+     -o local_recipient_maps=
+     -o relay_recipient_maps=
+
+EOF
+
+
+
+postconf -e 'content_filter = amavisfeed:[127.0.0.1]:10024'
 
 #vi /etc/mail/spamassassin/local.cf
 
@@ -383,16 +444,20 @@ groupadd spamd
 useradd -g spamd -s /bin/false -d /var/log/spamassassin spamd
 chown spamd:spamd /var/log/spamassassin
 
+#sed -i '/^smtp      inet/ s/$/ -o content_filter=spamassassin -o smtpd_milters=/' /etc/postfix/master.cf
+
+#cat >> /etc/postfix/master.cf <<"EOF"
+#spamassassin unix - n n - - pipe flags=R user=spamd argv=/usr/bin/spamc -e /usr/sbin/sendmail -oi -f ${sender} ${recipient}
+#EOF
+
 service spamassassin start
 chkconfig spamassassin on
-
-sed -i '/^smtp      inet/ s/$/ -o content_filter=spamassassin -o smtpd_milters=/' /etc/postfix/master.cf
-
-cat >> /etc/postfix/master.cf <<"EOF"
-spamassassin unix - n n - - pipe flags=R user=spamd argv=/usr/bin/spamc -e /usr/sbin/sendmail -oi -f ${sender} ${recipient}
-EOF
-
+service amavisd restart
+chkconfig amavisd on
+service clamd@amavisd restart
+chkconfig clamd@amavisd on
 service postfix restart
+echo " "
 }
 
 function remove_mail_server
@@ -405,7 +470,6 @@ rm -rf /etc/dovecot
 rm -rf /etc/opendkim
 rm -rf /usr/local/nginx/html/roundcube
 userdel -r vmail
-userdel -r spamd
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
 mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
@@ -413,6 +477,13 @@ mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
 echo " "
 }
 
+function remove_mail_addons
+{
+yum remove spamassassin amavisd-new clamav clamav-scanner -y
+userdel -r spamd
+service postfix restart
+echo " "
+}
 
 function start_display
 {
@@ -422,33 +493,35 @@ function start_display
                         while [ "$b" = 1 ]; do
                                 echo -e $YELLOW"Select Option to Setup Mail Server on CMM:"$RESET
                                 echo " "
-                                echo -e $GREEN"1) Setup MailServer (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                 echo " "
-                                echo -e $GREEN"2) Setup SpamAssassin for Mailserver"$RESET
+                                echo -e $GREEN"2) Setup Addons for Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
                                 echo -e $GREEN"3) Setup Additonal Domain and Email"$RESET
                                 echo " "
                                 echo -e $GREEN"4) Retrive DKIM Key for Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"5) Remove Mail Server"$RESET
+                                echo -e $GREEN"5) Remove Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                 echo " "
-                                echo -e $GREEN"6) Exit"$RESET
+                                echo -e $GREEN"6) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo " "
+                                echo -e $GREEN"7) Exit"$RESET
                                 echo "#?"
 
                                 read input
 
                                         if [ "$input" = '1' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Setting Up Mail server"$RESET
+                                                echo -e $BLINK"Installing Mail server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                                 sleep 1
                                                 input_data
 
                                         elif [ "$input" = '2' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Installing Spamassassin for Mailserver"$RESET
+                                                echo -e $BLINK"Installing Addons for Mail Server (Amavisd, Spamassassin and Clamav)"$RESET
                                                 echo " "
                                                 sleep 1
-                                                setup_spamassassin
+                                                setup_amavisd_spamassassin_clamav
 
                                         elif [ "$input" = '3' ]; then
                                                 echo " "
@@ -481,6 +554,13 @@ function start_display
                                                 remove_mail_server
 
                                         elif [ "$input" = '6' ]; then
+                                                echo " "
+                                                echo -e $BLINK"Removing Amavisd, SpamAssassin and Clamav for Mailserver"$RESET
+                                                echo " "
+                                                sleep 1
+                                                remove_mail_addons
+
+                                        elif [ "$input" = '7' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Exiting"$RESET
                                                 echo " "
