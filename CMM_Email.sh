@@ -1,6 +1,4 @@
-#!/bin/bash
-
-# Backup Script CentMinMod [Local Drive Backup, Amazon Backup, FTP Backup & Restore]
+# Mail Server Installer Script for CentMinMod Installer [CMM]
 
 # Scripted by Brijendra Sial @ Bullten Web Hosting Solutions [https://www.bullten.com]
 
@@ -400,6 +398,8 @@ MY_DOMAIN_NAME=$(grep -ir "MYDOMAINNAME" /etc/centminmod/cmmemailconfig/email.co
 
 sed -i "s/$mydomain = 'example.com'/$mydomain = '$MY_DOMAIN_NAME'/g" /etc/amavisd/amavisd.conf
 sed -i "s/$myhostname = 'host.example.com'/$myhostname = '$MY_HOSTNAME_NAME'/g" /etc/amavisd/amavisd.conf
+sed -i "s/\@local_domains_maps = ( \[\".\$mydomain\"/\\@local_domains_maps = ( \[\".\"/g" /etc/amavisd/amavisd.conf
+sed -i "/\@local_domains_maps = ( \[\".\"/ a \@local_domains_acl = ( \".\$mydomain\"\ );" /etc/amavisd/amavisd.conf
 sed -i "s/sa_tag_level_deflt  = 2.0/sa_tag_level_deflt  = -9999/g" /etc/amavisd/amavisd.conf
 
 cat >> /etc/postfix/master.cf << EOF
@@ -507,11 +507,13 @@ function start_display
                                 echo -e $GREEN"6) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
                                 echo -e $GREEN"7) Exit"$RESET
-                                echo "#?"
+                                echo " "
 
-                                read input
+                                #read input
 
-                                        if [ "$input" = '1' ]; then
+                                read -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " input
+
+                                       if [ "$input" = '1' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Installing Mail server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                                 sleep 1
