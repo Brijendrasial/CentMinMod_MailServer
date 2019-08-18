@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Mail Server Installer Script for CentMinMod Installer [CMM]
 
 # Scripted by Brijendra Sial @ Bullten Web Hosting Solutions [https://www.bullten.com]
@@ -58,6 +60,9 @@ yum update -y
 if  rpm -q postfix > /dev/null ; then
         echo -e $YELLOW"postfix Installation Found. Skipping Its Installation"$RESET
         echo " "
+        cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
+        EXIST_POSTFIX:y
+EOF
         else
         echo -e $RED"postfix Installation Not Found. Installing it"$RESET
         echo " "
@@ -283,6 +288,9 @@ if  rpm -q opendkim > /dev/null ; then
         echo " "
         echo -e $YELLOW"opendkim Installation Found. Skipping Its Installation"$RESET
         echo " "
+        cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
+        EXIST_OPENDKIM:y
+EOF
         sleep 10
         else
         echo " "
@@ -463,12 +471,34 @@ echo " "
 
 function remove_mail_server
 {
-yum remove postfix mailx mutt -y
+
+POSTFIX=$(grep -ir "EXIST_POSTFIX" /etc/centminmod/cmmemailconfig/email.conf | cut -d":" -f2)
+if [ "$POSTFIX" = "y" ]; then
+        echo " "
+        echo "Postfix Already existed. Skipping Uninstallation"
+        echo " "
+else
+        echo " "
+        yum remove postfix -y
+        rm -rf /etc/postfix
+        echo " "
+fi
+
+OPENDKIM=$(grep -ir "EXIST_OPENDKIM" /etc/centminmod/cmmemailconfig/email.conf | cut -d":" -f2)
+if [ "$OPENDKIM" = "y" ]; then
+        echo " "
+        echo "OpenDKIM Already existed. Skipping Uninstallation"
+        echo " "
+else
+        echo " "
+        yum remove opendkim -y
+        rm -rf /etc/opendkim
+        echo " "
+fi
+
+yum remove mailx mutt -y
 yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel -y
-yum remove opendkim -y
-rm -rf /etc/postfix
 rm -rf /etc/dovecot
-rm -rf /etc/opendkim
 rm -rf /usr/local/nginx/html/roundcube
 userdel -r vmail
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
