@@ -640,14 +640,44 @@ function start_display
                                                 echo -e $BLINK"Removing Mail Server"$RESET
                                                 echo " "
                                                 sleep 1
-                                                remove_mail_server
+                                                read -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server (y/n)?:"$RESET) " choice
+                                                case "$choice" in
+                                                        y|Y )
+                                                                remove_mail_server
+                                                        ;;
+                                                        n|N )
+                                                                echo " "
+                                                                echo -e $YELLOW"Uninstallation of Mail Server Declined"$RESET
+                                                                echo " "
+                                                        ;;
+                                                        * )
+                                                                echo " "
+                                                                echo "Invalid Option Selected"
+                                                                echo " "
+                                                        ;;
+                                                esac
 
                                         elif [ "$input" = '7' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Removing Amavisd, SpamAssassin and Clamav for Mailserver"$RESET
+                                                echo -e $BLINK"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
                                                 echo " "
                                                 sleep 1
-                                                remove_mail_addons
+                                                read -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server Addons(y/n)?:"$RESET) " choice
+                                                case "$choice" in
+                                                        y|Y )
+                                                                remove_mail_addons
+                                                        ;;
+                                                        n|N )
+                                                                echo " "
+                                                                echo -e $YELLOW"Uninstallation of Mail Server Addons Declined"$RESET
+                                                                echo " "
+                                                        ;;
+                                                        * )
+                                                                echo " "
+                                                                echo "Invalid Option Selected"
+                                                                echo " "
+                                                        ;;
+                                                esac
 
                                         elif [ "$input" = '8' ]; then
                                                 echo " "
