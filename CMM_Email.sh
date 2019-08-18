@@ -29,7 +29,9 @@ echo -e "$GREEN*****************************************************************
 
 echo " "
 
+bss=0
 b=1
+bs=1
 MYSQL_ROOT=$(cat /root/.my.cnf | grep password | cut -d' ' -f1 | cut -d'=' -f2)
 DATABASE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
@@ -58,12 +60,15 @@ function required_software
 yum update -y
 
 if  rpm -q postfix > /dev/null ; then
+        echo " "
         echo -e $YELLOW"postfix Installation Found. Skipping Its Installation"$RESET
         echo " "
         cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
         EXIST_POSTFIX:y
 EOF
-        else
+
+else
+        echo " "
         echo -e $RED"postfix Installation Not Found. Installing it"$RESET
         echo " "
         yum install postfix -y
@@ -489,6 +494,17 @@ if [ "$OPENDKIM" = "y" ]; then
         echo " "
         echo "OpenDKIM Already existed. Skipping Uninstallation"
         echo " "
+        TABLES=$(mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "SELECT domain FROM domains;")
+        for bss in $TABLES; do
+                echo "Listing Content of Column Domain $bss"
+                echo " "
+                LIST_TABLES=$(mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "SELECT domain FROM domains" | wc -l)
+                for ((i=0; i<$LIST_TABLES; i++)); do
+                        rm -rf /etc/opendkim/keys/$bss
+                        i=$((i+1))
+                done
+        done
+
 else
         echo " "
         yum remove opendkim -y
@@ -516,6 +532,38 @@ service postfix restart
 echo " "
 }
 
+function add_email
+{
+echo " "
+read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
+echo " "
+echo -e $GREEN"Email ID $EMAIL_USER Successfully Added"$RESET
+echo " "
+}
+
+function remove_email
+{
+echo " "
+read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "DELETE FROM users WHERE email = '$EMAIL_USER';"
+echo " "
+echo -e $GREEN"Email ID $EMAIL_USER Successfully Removed from Database"$RESET
+echo " "
+}
+
+function change_password_email
+{
+echo " "
+read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+read -p "$(echo -e $GREEN"Enter Email New Password:"$RESET) " EMAIL_PASSWORD
+mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "update users set password=ENCRYPT('$EMAIL_PASSWORD') where email='$EMAIL_USER';"
+echo " "
+echo -e $GREEN"Password for $EMAIL_USER Successfully Changed"$RESET
+echo " "
+}
+
 function start_display
 {
         if [ -e "/etc/centminmod" ]; then
@@ -528,15 +576,17 @@ function start_display
                                 echo " "
                                 echo -e $GREEN"2) Setup Addons for Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
-                                echo -e $GREEN"3) Setup Additonal Domain and Email"$RESET
+                                echo -e $GREEN"3) Setup New Additonal Domain with Email ID"$RESET
                                 echo " "
-                                echo -e $GREEN"4) Retrive DKIM Key for Domain"$RESET
+                                echo -e $GREEN"4) Add/Remove New Email or Change Password of Existing Email"$RESET
                                 echo " "
-                                echo -e $GREEN"5) Remove Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                echo -e $GREEN"5) Retrive DKIM Key for Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"6) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo -e $GREEN"6) Remove Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                 echo " "
-                                echo -e $GREEN"7) Exit"$RESET
+                                echo -e $GREEN"7) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo " "
+                                echo -e $GREEN"8) Exit"$RESET
                                 echo " "
 
                                 #read input
@@ -558,7 +608,7 @@ function start_display
 
                                         elif [ "$input" = '3' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Add New Email ID"$RESET
+                                                echo -e $BLINK"Add New Domain With Email ID"$RESET
                                                 sleep 1
                                                 read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
                                                 read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
@@ -566,6 +616,12 @@ function start_display
                                                 create_email_account
 
                                         elif [ "$input" = '4' ]; then
+                                                echo " "
+                                                echo -e $BLINK"Setup New/Remove Email or Change Password"$RESET
+                                                sleep 1
+                                                add_remove_display
+
+                                        elif [ "$input" = '5' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Retrive DKIM Key For A Domain"$RESET
                                                 echo " "
@@ -579,21 +635,21 @@ function start_display
                                                 echo " "
                                                 echo " "
 
-                                        elif [ "$input" = '5' ]; then
+                                        elif [ "$input" = '6' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Removing Mail Server"$RESET
                                                 echo " "
                                                 sleep 1
                                                 remove_mail_server
 
-                                        elif [ "$input" = '6' ]; then
+                                        elif [ "$input" = '7' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Removing Amavisd, SpamAssassin and Clamav for Mailserver"$RESET
                                                 echo " "
                                                 sleep 1
                                                 remove_mail_addons
 
-                                        elif [ "$input" = '7' ]; then
+                                        elif [ "$input" = '8' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Exiting"$RESET
                                                 echo " "
@@ -612,6 +668,52 @@ function start_display
                 echo " "
 
         fi
+}
+
+function add_remove_display
+{
+        while [ "$bs" = 1 ]; do
+             echo " "
+             echo -e $YELLOW"Select Option to Add/Remove or Change Password of Email ID:"$RESET
+             echo " "
+             echo -e $GREEN"1) Do You Want To Add New Email ID"$RESET
+             echo " "
+             echo -e $GREEN"2) Do You Want to Remove Existing Email ID"$RESET
+             echo " "
+             echo -e $GREEN"3) Do You Want to Change Password of Existing Email ID"$RESET
+             echo " "
+             echo -e $GREEN"4) Back To Previous Screen"$RESET
+             echo " "
+             #read inputss
+
+                read -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " inputss
+
+                if [ "$inputss" = '1' ]; then
+                        echo " "
+                        add_email
+                        echo " "
+
+                elif [ "$inputss" = '2' ]; then
+                        echo " "
+                        remove_email
+                        echo " "
+
+                elif [ "$inputss" = '3' ]; then
+                        echo " "
+                        change_password_email
+                        echo " "
+
+                elif [ "$inputss" = '4' ]; then
+                        echo " "
+                        start_display
+                        echo " "
+                else
+
+                        echo " "
+                        echo -e $RED"You Have Selected An Invalid Option"$RESET
+                        echo " "
+                fi
+        done
 }
 
 start_display
