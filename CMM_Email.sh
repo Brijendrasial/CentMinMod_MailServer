@@ -446,6 +446,15 @@ amavisfeed unix    -       -       n        -      2     lmtp
      -o local_recipient_maps=
      -o relay_recipient_maps=
 
+
+submission inet n       -       y       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_client_restrictions=permit_sasl_authenticated,permit_mx_backup,reject
+  -o content_filter=amavisfeed:[127.0.0.1]:10024
+
+
 smtps     inet  n       -       y       -       -       smtpd
   -o syslog_name=postfix/smtps
   -o smtpd_tls_wrappermode=yes
