@@ -480,6 +480,16 @@ chown spamd:spamd /var/log/spamassassin
 #spamassassin unix - n n - - pipe flags=R user=spamd argv=/usr/bin/spamc -e /usr/sbin/sendmail -oi -f ${sender} ${recipient}
 #EOF
 
+cat >> /etc/amavisd/amavisd.conf <<"EOF"
+# Selectively disable some of the header checks
+#
+# Duplicate or multiple occurrence of a header field
+$allowed_header_tests{'multiple'} = 0;
+
+# Missing some headers. e.g. 'Date:'
+$allowed_header_tests{'missing'} = 0;
+EOF
+
 service spamassassin start
 chkconfig spamassassin on
 service amavisd restart
