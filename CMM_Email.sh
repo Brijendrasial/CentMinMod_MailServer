@@ -38,10 +38,15 @@ ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -
 
 function input_data
 {
+
 read -p "$(echo -e $GREEN"Enter Your Hostname:"$RESET) " MY_HOST_NAME
+echo " "
 read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+echo " "
 read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+echo " "
 read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+echo " "
 
 mkdir /etc/centminmod/cmmemailconfig
 
@@ -63,8 +68,8 @@ if  rpm -q postfix > /dev/null ; then
         echo " "
         echo -e $YELLOW"postfix Installation Found. Skipping Its Installation"$RESET
         echo " "
-        cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
-        EXIST_POSTFIX:y
+cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
+EXIST_POSTFIX:y
 EOF
 
 else
@@ -104,7 +109,7 @@ function create_email_account
 {
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO domains (domain) VALUES ('$DOMAIN_NAME');"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
-if [ "$input" = '2' ]; then
+if [ "$input" = '2' ] || [ "$input" = '3' ]; then
         mkdir /etc/opendkim/keys/$DOMAIN_NAME
         opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
         chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
@@ -123,8 +128,8 @@ EOF
         $DOMAIN_NAME
 EOF
         echo " "
-        DKIM_KEY=$(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')
-        echo "$DKIM_KEY"
+        echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+        echo " "
 
 else
         postfix_mysql_configuration
@@ -293,8 +298,8 @@ if  rpm -q opendkim > /dev/null ; then
         echo " "
         echo -e $YELLOW"opendkim Installation Found. Skipping Its Installation"$RESET
         echo " "
-        cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
-        EXIST_OPENDKIM:y
+cat >> /etc/centminmod/cmmemailconfig/email.conf << EOF
+EXIST_OPENDKIM:y
 EOF
         sleep 10
         else
@@ -348,10 +353,10 @@ postconf -e 'non_smtpd_milters = $smtpd_milters'
 postconf -e 'milter_default_action = accept'
 postconf -e 'milter_protocol = 2'
 
-service opendkim start
-chkconfig opendkim on
-service postfix restart
-service dovecot restart
+systemctl start  opendkim
+systemctl enable opendkim
+systemctl restart postfix
+systemctl restart dovecot
 setup_roundcube
 }
 
@@ -394,6 +399,8 @@ echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/
 echo " "
 echo -e $BLINK"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
 echo " "
+echo -e $BLINK"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
+echo " "
 echo -e $BLINK"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
 echo  " "
 echo -e $BLINK"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
@@ -402,9 +409,11 @@ echo  " "
 
 function setup_amavisd_spamassassin_clamav
 {
-yum install spamassassin amavisd-new clamav clamav-scanner -y
+yum install spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
 freshclam
 
+sed -i "s/^Example/#Example/" /etc/clamd.d/scan.conf
+sed -i '/clamd.sock/s/^#//g' /etc/clamd.d/scan.conf
 
 MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
 MY_DOMAIN_NAME=$(grep -ir "MYDOMAINNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
@@ -490,13 +499,20 @@ $allowed_header_tests{'multiple'} = 0;
 $allowed_header_tests{'missing'} = 0;
 EOF
 
-service spamassassin start
-chkconfig spamassassin on
-service amavisd restart
-chkconfig amavisd on
-service clamd@amavisd restart
-chkconfig clamd@amavisd on
-service postfix restart
+systemctl start clamd@scan
+systemctl enable clamd@scan
+
+systemctl start spamassassin
+systemctl enable spamassassin
+
+systemctl start amavisd
+systemctl enable amavisd
+
+systemctl restart clamd@amavisd
+systemctl enable clamd@amavisd
+
+systemctl restart postfix
+
 echo " "
 }
 
@@ -508,6 +524,8 @@ if [ "$POSTFIX" = "y" ]; then
         echo " "
         echo "Postfix Already existed. Skipping Uninstallation"
         echo " "
+        HOST=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d":" -f2)
+        sed '/myhostname = $HOST/Q' /etc/postfix/main.cf
 else
         echo " "
         yum remove postfix -y
@@ -524,13 +542,8 @@ if [ "$OPENDKIM" = "y" ]; then
         for bss in $TABLES; do
                 echo "Listing Content of Column Domain $bss"
                 echo " "
-                LIST_TABLES=$(mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "SELECT domain FROM domains" | wc -l)
-                for ((i=0; i<$LIST_TABLES; i++)); do
-                        rm -rf /etc/opendkim/keys/$bss
-                        i=$((i+1))
+                rm -rf /etc/opendkim/keys/$bss
                 done
-        done
-
 else
         echo " "
         yum remove opendkim -y
@@ -552,9 +565,10 @@ echo " "
 
 function remove_mail_addons
 {
-yum remove spamassassin amavisd-new clamav clamav-scanner -y
+yum remove spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
 userdel -r spamd
-service postfix restart
+systemctl restart postfix
+systemctl restart dovecot
 echo " "
 }
 
@@ -566,7 +580,6 @@ read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
 echo " "
 echo -e $GREEN"Email ID $EMAIL_USER Successfully Added"$RESET
-echo " "
 }
 
 function remove_email
@@ -602,7 +615,7 @@ function start_display
                                 echo " "
                                 echo -e $GREEN"2) Setup Addons for Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
-                                echo -e $GREEN"3) Setup New Additonal Domain with Email ID"$RESET
+                                echo -e $GREEN"3) Setup New Domain With Email ID If Doesnt Exist"$RESET
                                 echo " "
                                 echo -e $GREEN"4) Add/Remove New Email or Change Password of Existing Email"$RESET
                                 echo " "
@@ -622,6 +635,7 @@ function start_display
                                        if [ "$input" = '1' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Installing Mail server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                                echo " "
                                                 sleep 1
                                                 input_data
 
@@ -635,6 +649,7 @@ function start_display
                                         elif [ "$input" = '3' ]; then
                                                 echo " "
                                                 echo -e $BLINK"Add New Domain With Email ID"$RESET
+                                                echo " "
                                                 sleep 1
                                                 read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
                                                 read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
