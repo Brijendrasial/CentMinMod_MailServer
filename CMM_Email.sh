@@ -320,7 +320,7 @@ Mode                    sv
 Canonicalization        relaxed/simple
 ExternalIgnoreList      refile:/etc/opendkim/TrustedHosts
 InternalHosts           refile:/etc/opendkim/TrustedHosts
-KeyTable                refile:/etc/opendkim/KeyTable
+KeyTable                /etc/opendkim/KeyTable
 SigningTable            refile:/etc/opendkim/SigningTable
 SignatureAlgorithm      rsa-sha256
 Socket                  inet:8891@localhost
