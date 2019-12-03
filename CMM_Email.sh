@@ -110,26 +110,26 @@ function create_email_account
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO domains (domain) VALUES ('$DOMAIN_NAME');"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
 if [ "$input" = '2' ] || [ "$input" = '3' ]; then
-        mkdir /etc/opendkim/keys/$DOMAIN_NAME
-        opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
-        chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
-        mv /etc/opendkim/keys/$DOMAIN_NAME/default.private /etc/opendkim/keys/$DOMAIN_NAME/default
+mkdir /etc/opendkim/keys/$DOMAIN_NAME
+opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
+chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
+mv /etc/opendkim/keys/$DOMAIN_NAME/default.private /etc/opendkim/keys/$DOMAIN_NAME/default
 
-        cat >> /etc/opendkim/KeyTable << EOF
-        default._domainkey.$DOMAIN_NAME $DOMAIN_NAME:default:/etc/opendkim/keys/$DOMAIN_NAME/default
+cat >> /etc/opendkim/KeyTable << EOF
+default._domainkey.$DOMAIN_NAME $DOMAIN_NAME:default:/etc/opendkim/keys/$DOMAIN_NAME/default
 EOF
 
-        cat >> /etc/opendkim/SigningTable << EOF
-        *@$DOMAIN_NAME default._domainkey.$DOMAIN_NAME
+cat >> /etc/opendkim/SigningTable << EOF
+*@$DOMAIN_NAME default._domainkey.$DOMAIN_NAME
 EOF
 
-        cat >> /etc/opendkim/TrustedHosts << EOF
-        $HOST_NAME
-        $DOMAIN_NAME
+cat >> /etc/opendkim/TrustedHosts << EOF
+$HOST_NAME
+$DOMAIN_NAME
 EOF
-        echo " "
-        echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
-        echo " "
+echo " "
+echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo " "
 
 else
         postfix_mysql_configuration
