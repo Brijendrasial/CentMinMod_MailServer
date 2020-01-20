@@ -39,13 +39,13 @@ ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -
 function input_data
 {
 
-read -p "$(echo -e $GREEN"Enter Your Hostname:"$RESET) " MY_HOST_NAME
+read -e -p "$(echo -e $GREEN"Enter Your Hostname:"$RESET) " MY_HOST_NAME
 echo " "
-read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
 echo " "
-read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
 echo " "
-read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+read -e -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
 echo " "
 
 mkdir /etc/centminmod/cmmemailconfig
@@ -575,8 +575,8 @@ echo " "
 function add_email
 {
 echo " "
-read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
-read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+read -e -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
 echo " "
 echo -e $GREEN"Email ID $EMAIL_USER Successfully Added"$RESET
@@ -585,7 +585,7 @@ echo -e $GREEN"Email ID $EMAIL_USER Successfully Added"$RESET
 function remove_email
 {
 echo " "
-read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
 mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "DELETE FROM users WHERE email = '$EMAIL_USER';"
 echo " "
 echo -e $GREEN"Email ID $EMAIL_USER Successfully Removed from Database"$RESET
@@ -595,8 +595,8 @@ echo " "
 function change_password_email
 {
 echo " "
-read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
-read -p "$(echo -e $GREEN"Enter Email New Password:"$RESET) " EMAIL_PASSWORD
+read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+read -e -p "$(echo -e $GREEN"Enter Email New Password:"$RESET) " EMAIL_PASSWORD
 mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "update users set password=ENCRYPT('$EMAIL_PASSWORD') where email='$EMAIL_USER';"
 echo " "
 echo -e $GREEN"Password for $EMAIL_USER Successfully Changed"$RESET
@@ -651,9 +651,9 @@ function start_display
                                                 echo -e $BLINK"Add New Domain With Email ID"$RESET
                                                 echo " "
                                                 sleep 1
-                                                read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
-                                                read -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
-                                                read -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+                                                read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+                                                read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+                                                read -e -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
                                                 create_email_account
 
                                         elif [ "$input" = '4' ]; then
@@ -667,7 +667,7 @@ function start_display
                                                 echo -e $BLINK"Retrive DKIM Key For A Domain"$RESET
                                                 echo " "
                                                 sleep 1
-                                                read -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+                                                read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
                                                 echo " "
                                                 echo -e $GREEN"DKIM Key for Domain $DOMAIN_NAME is Below:"$RESET
                                                 echo " "
@@ -681,7 +681,7 @@ function start_display
                                                 echo -e $BLINK"Removing Mail Server"$RESET
                                                 echo " "
                                                 sleep 1
-                                                read -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server (y/n)?:"$RESET) " choice
+                                                read -e -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server (y/n)?:"$RESET) " choice
                                                 case "$choice" in
                                                         y|Y )
                                                                 remove_mail_server
@@ -703,7 +703,7 @@ function start_display
                                                 echo -e $BLINK"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
                                                 echo " "
                                                 sleep 1
-                                                read -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server Addons(y/n)?:"$RESET) " choice
+                                                read -e -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server Addons(y/n)?:"$RESET) " choice
                                                 case "$choice" in
                                                         y|Y )
                                                                 remove_mail_addons
@@ -757,7 +757,7 @@ function add_remove_display
              echo " "
              #read inputss
 
-                read -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " inputss
+                read -e -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " inputss
 
                 if [ "$inputss" = '1' ]; then
                         echo " "
