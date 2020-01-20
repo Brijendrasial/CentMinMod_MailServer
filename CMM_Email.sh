@@ -353,7 +353,7 @@ postconf -e 'non_smtpd_milters = $smtpd_milters'
 postconf -e 'milter_default_action = accept'
 postconf -e 'milter_protocol = 2'
 
-systemctl start  opendkim
+systemctl restart  opendkim
 systemctl enable opendkim
 systemctl restart postfix
 systemctl restart dovecot
