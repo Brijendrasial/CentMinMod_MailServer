@@ -674,7 +674,7 @@ function start_display
                                                 echo " "
                                                 echo -e $GREEN"DKIM Key for Domain $DOMAIN_NAME is Below:"$RESET
                                                 echo " "
-                                                echo -e $YELLOW"default._domainkey.$DOMAIN_NAME DKIM_KEY=$(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+                                                echo -e $YELLOW"default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
                                                 echo "$DKIM_KEY"
                                                 echo " "
                                                 echo " "
