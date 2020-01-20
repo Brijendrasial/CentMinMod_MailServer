@@ -131,6 +131,8 @@ echo " "
 echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
 echo " "
 
+systemctl restart postfix
+
 else
         postfix_mysql_configuration
 fi
