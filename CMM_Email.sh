@@ -193,6 +193,7 @@ postconf -e "myhostname = $MY_HOST_NAME"
 postconf -e 'mydestination = localhost'
 postconf -e 'mynetworks = 127.0.0.0/8'
 postconf -e 'inet_interfaces = all'
+postconf -e 'inet_protocols = ipv4'
 postconf -e 'message_size_limit = 30720000'
 postconf -e 'virtual_alias_domains ='
 postconf -e 'virtual_alias_maps = proxy:mysql:/etc/postfix/mysql-virtual_forwardings.cf, mysql:/etc/postfix/mysql-virtual_email2email.cf'
