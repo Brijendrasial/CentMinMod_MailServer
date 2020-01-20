@@ -128,7 +128,7 @@ $HOST_NAME
 $DOMAIN_NAME
 EOF
 echo " "
-echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
 echo " "
 
 systemctl restart postfix
@@ -397,15 +397,15 @@ rm -rf /usr/local/nginx/html/roundcube/installer
 
 nprestart
 echo " "
-echo -e $BLINK"Your DKIM Details for domain $DOMAIN_NAME is $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
 echo " "
-echo -e $BLINK"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
+echo -e $YELLOW"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
 echo " "
-echo -e $BLINK"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
+echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
 echo " "
-echo -e $BLINK"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
+echo -e $YELLOW"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
 echo  " "
-echo -e $BLINK"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
+echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
 echo  " "
 }
 
@@ -608,7 +608,7 @@ echo " "
 function start_display
 {
         if [ -e "/etc/centminmod" ]; then
-                echo -e $BLINK"Centminmod Installation Detected"$RESET
+                echo -e $YELLOW"Centminmod Installation Detected"$RESET
                 echo " "
                         while [ "$b" = 1 ]; do
                                 echo -e $YELLOW"Select Option to Setup Mail Server on CMM:"$RESET
@@ -636,21 +636,21 @@ function start_display
 
                                        if [ "$input" = '1' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Installing Mail server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                                echo -e $YELLOW"Installing Mail server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
                                                 echo " "
                                                 sleep 1
                                                 input_data
 
                                         elif [ "$input" = '2' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Installing Addons for Mail Server (Amavisd, Spamassassin and Clamav)"$RESET
+                                                echo -e $YELLOW"Installing Addons for Mail Server (Amavisd, Spamassassin and Clamav)"$RESET
                                                 echo " "
                                                 sleep 1
                                                 setup_amavisd_spamassassin_clamav
 
                                         elif [ "$input" = '3' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Add New Domain With Email ID"$RESET
+                                                echo -e $YELLOW"Add New Domain With Email ID"$RESET
                                                 echo " "
                                                 sleep 1
                                                 read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
@@ -660,13 +660,13 @@ function start_display
 
                                         elif [ "$input" = '4' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Setup New/Remove Email or Change Password"$RESET
+                                                echo -e $YELLOW"Setup New/Remove Email or Change Password"$RESET
                                                 sleep 1
                                                 add_remove_display
 
                                         elif [ "$input" = '5' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Retrive DKIM Key For A Domain"$RESET
+                                                echo -e $YELLOW"Retrive DKIM Key For A Domain"$RESET
                                                 echo " "
                                                 sleep 1
                                                 read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
@@ -680,7 +680,7 @@ function start_display
 
                                         elif [ "$input" = '6' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Removing Mail Server"$RESET
+                                                echo -e $YELLOW"Removing Mail Server"$RESET
                                                 echo " "
                                                 sleep 1
                                                 read -e -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server (y/n)?:"$RESET) " choice
@@ -702,7 +702,7 @@ function start_display
 
                                         elif [ "$input" = '7' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
+                                                echo -e $YELLOW"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
                                                 echo " "
                                                 sleep 1
                                                 read -e -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server Addons(y/n)?:"$RESET) " choice
@@ -724,7 +724,7 @@ function start_display
 
                                         elif [ "$input" = '8' ]; then
                                                 echo " "
-                                                echo -e $BLINK"Exiting"$RESET
+                                                echo -e $YELLOW"Exiting"$RESET
                                                 echo " "
                                                 exit
 
