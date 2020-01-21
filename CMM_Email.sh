@@ -415,6 +415,7 @@ sed -i "s|^\(\$config\['db_dsnw'\] =\).*$|\1 \'mysqli://roundcube:$ROUNDCUBE_PAS
 sed -i "s|^\(\$config\['smtp_server'\] =\).*$|\1 \'localhost\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 sed -i "s|^\(\$config\['smtp_user'\] =\).*$|\1 \'%u\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 sed -i "s|^\(\$config\['smtp_pass'\] =\).*$|\1 \'%p\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/local/nginx/html/roundcube/config/defaults.inc.php
 #sed -i "s|^\(\$config\['support_url'\] =\).*$|\1 \'mailto:${E}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
 deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9-_#&!*%?' | fold -w 24 | head -n 1)
