@@ -183,6 +183,15 @@ chmod o= /etc/postfix/mysql-virtual_*.cf
 chgrp postfix /etc/postfix/mysql-virtual_*.cf
 groupadd -g 5000 vmail
 useradd -g vmail -u 5000 vmail -d /home/vmail -m
+ssl_cert
+}
+
+function ssl_cert
+{
+yum install socat -y
+cd /usr/local/src/centminmod/addons/
+yes | ./acmetool.sh
+/root/.acme.sh/acme.sh --issue --nginx -d $MY_HOST_NAME
 postfix_main_configuration
 }
 
@@ -211,9 +220,26 @@ postconf -e 'smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authe
 postconf -e 'smtpd_use_tls = yes'
 postconf -e 'smtp_tls_loglevel = 1'
 postconf -e 'smtp_tls_security_level = may'
+postconf -e 'smtp_tls_CApath = /etc/ssl/certs'
+postconf -e 'smtpd_tls_CApath = /etc/ssl/certs'
 postconf -e 'local_recipient_maps = unix:passwd.byname $virtual_alias_maps'
-postconf -e 'smtpd_tls_cert_file = /etc/pki/dovecot/certs/dovecot.pem'
-postconf -e 'smtpd_tls_key_file = /etc/pki/dovecot/private/dovecot.pem'
+postconf -e 'smtpd_tls_protocols = TLSv1.2, TLSv1.1, !TLSv1, !SSLv2, !SSLv3'
+postconf -e 'smtp_tls_protocols = TLSv1.2, TLSv1.1, !TLSv1, !SSLv2, !SSLv3'
+postconf -e 'smtp_tls_ciphers = high'
+postconf -e 'smtpd_tls_ciphers = high'
+postconf -e 'smtpd_tls_mandatory_protocols = TLSv1.2, TLSv1.1, !TLSv1, !SSLv2, !SSLv3'
+postconf -e 'smtp_tls_mandatory_protocols = TLSv1.2, TLSv1.1, !TLSv1, !SSLv2, !SSLv3'
+postconf -e 'smtp_tls_mandatory_ciphers = high'
+postconf -e 'smtpd_tls_mandatory_ciphers = high'
+postconf -e 'smtpd_tls_mandatory_exclude_ciphers = MD5, DES, ADH, RC4, PSD, SRP, 3DES, eNULL, aNULL'
+postconf -e 'smtpd_tls_exclude_ciphers = MD5, DES, ADH, RC4, PSD, SRP, 3DES, eNULL, aNULL'
+postconf -e 'smtp_tls_mandatory_exclude_ciphers = MD5, DES, ADH, RC4, PSD, SRP, 3DES, eNULL, aNULL'
+postconf -e 'smtp_tls_exclude_ciphers = MD5, DES, ADH, RC4, PSD, SRP, 3DES, eNULL, aNULL'
+postconf -e 'tls_preempt_cipherlist = yes'
+postconf -e "smtpd_tls_cert_file = /root/.acme.sh/$MY_HOST_NAME/fullchain.cer"
+postconf -e "smtpd_tls_key_file = /root/.acme.sh/$MY_HOST_NAME/$MY_HOST_NAME.key"
+postconf -e 'smtpd_tls_CAfile = /etc/ssl/certs/ca-bundle.crt'
+postconf -e 'smtp_tls_CAfile = $smtpd_tls_CAfile'
 postconf -e 'proxy_read_maps = $local_recipient_maps $mydestination $virtual_alias_maps $virtual_alias_domains $virtual_mailbox_maps $virtual_mailbox_domains $relay_recipient_maps $relay_domains $canonical_maps $sender_canonical_maps $recipient_canonical_maps $relocated_maps $transport_maps $mynetworks'
 postconf -e 'virtual_transport = virtual'
 postconf -e 'dovecot_destination_recipient_limit = 1'
