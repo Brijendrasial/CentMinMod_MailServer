@@ -986,7 +986,7 @@ function roundcube_display
         done
 }
 
-function roundcube_display
+function dkim_display
 {
         while [ "$d" = 1 ]; do
              echo " "
