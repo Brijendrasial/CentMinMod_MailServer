@@ -490,6 +490,9 @@ sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/loc
 deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9-_#&!*%?' | fold -w 24 | head -n 1)
 sed -i "s|^\(\$config\['des_key'\] =\).*$|\1 \'${deskey}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
+MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
+sed -i "s|^\(\$config\['smtp_server'\] =\).*$|\1 \'tls://mail.bullten.work\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+
 nprestart
 
 rm -rf /usr/local/nginx/html/roundcube/installer
