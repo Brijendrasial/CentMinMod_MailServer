@@ -32,6 +32,8 @@ echo " "
 bss=0
 b=1
 bs=1
+r=1
+d=1
 MYSQL_ROOT=$(cat /root/.my.cnf | grep password | cut -d' ' -f1 | cut -d'=' -f2)
 DATABASE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
@@ -103,6 +105,54 @@ mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE forwardings (source varchar(
 mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE users (email varchar(80) NOT NULL, password varchar(20) NOT NULL, PRIMARY KEY (email) );"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE transport ( domain varchar(128) NOT NULL default '', transport varchar(128) NOT NULL default '', UNIQUE KEY domain (domain) )"
 create_email_account
+}
+
+function dkim_generate
+{
+mkdir /etc/opendkim/keys/$DOMAIN_NAME
+opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
+chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
+mv /etc/opendkim/keys/$DOMAIN_NAME/default.private /etc/opendkim/keys/$DOMAIN_NAME/default
+
+cat >> /etc/opendkim/KeyTable << EOF
+default._domainkey.$DOMAIN_NAME $DOMAIN_NAME:default:/etc/opendkim/keys/$DOMAIN_NAME/default
+EOF
+
+cat >> /etc/opendkim/SigningTable << EOF
+*@$DOMAIN_NAME default._domainkey.$DOMAIN_NAME
+EOF
+
+cat >> /etc/opendkim/TrustedHosts << EOF
+$DOMAIN_NAME
+EOF
+
+echo " "
+echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo " "
+}
+
+function recreate_dkim
+{
+echo " "
+read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+echo " "
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT * FROM domains WHERE domain = '$DOMAIN_NAME';")" ]; then
+        echo -e $GREEN"Deleting  DKIM key for $DOMAIN_NAME"$RESET
+        sleep 3
+        echo " "
+        rm -rf /etc/opendkim/keys/$DOMAIN_NAME
+        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/KeyTable
+        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/SigningTable
+        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/TrustedHosts
+        echo " "
+        echo -e $GREEN"Creating DKIM key for $DOMAIN_NAME"$RESET
+        sleep 3
+        echo " "
+        dkim_generate
+else
+        echo " "
+        echo -e $RED"Domain $DOMAIN_NAME Not Found So Its Useless to Regenerate DKIM Key"
+fi
 }
 
 function create_email_account
@@ -392,17 +442,30 @@ systemctl restart  opendkim
 systemctl enable opendkim
 systemctl restart postfix
 systemctl restart dovecot
-setup_roundcube
+
+echo " "
+echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo " "
+echo -e $YELLOW"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
+echo " "
+echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
+echo  " "
+echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
+echo  " "
+
 }
 
 function setup_roundcube
 {
-wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/1.3.9/roundcubemail-1.3.9-complete.tar.gz
+yum install java-11-openjdk-devel -y
+wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/1.4.1/roundcubemail-1.4.1-complete.tar.gz
 tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-*.tar.gz
 rm -f /usr/local/nginx/html/roundcubemail-*.tar.gz
 mv /usr/local/nginx/html/roundcubemail-* /usr/local/nginx/html/roundcube
+
 mv /usr/local/nginx/html/roundcube/composer.json-dist /usr/local/nginx/html/roundcube/composer.json
-(cd /usr/local/nginx/html/roundcube && curl -sS https://getcomposer.org/installer | php && php composer.phar install --no-dev)
+
+(cd /usr/local/nginx/html/ && curl -sS https://getcomposer.org/installer | php && php composer.phar install --no-dev)
 
 chown nginx:nginx -R /usr/local/nginx/html/roundcube
 chmod 777 -R /usr/local/nginx/html/roundcube/temp/
@@ -427,20 +490,52 @@ sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/loc
 deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9-_#&!*%?' | fold -w 24 | head -n 1)
 sed -i "s|^\(\$config\['des_key'\] =\).*$|\1 \'${deskey}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
+nprestart
+
 rm -rf /usr/local/nginx/html/roundcube/installer
 
-nprestart
-echo " "
-echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
-echo " "
-echo -e $YELLOW"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
-echo " "
-echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
 echo " "
 echo -e $YELLOW"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
 echo  " "
-echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
-echo  " "
+}
+
+function update_roundcube
+{
+echo " "
+read -e -p "$(echo -e $RED"Enter the version of roundcube you want to upgrade i.e 1.4.2:"$RESET) " rndc
+echo " "
+wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/$rndc/roundcubemail-$rndc-complete.tar.gz
+tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
+rm -rf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
+mv /usr/local/nginx/html/roundcubemail-$rndc* /usr/local/nginx/html/roundcube-$rndc
+/usr/local/nginx/html/roundcube-$rndc/bin/installto.sh /usr/local/nginx/html/roundcube << EOF
+y
+EOF
+rm -rf /usr/local/nginx/html/roundcube-$rndc
+}
+
+function delete_roundcube
+{
+read -e -p "$(echo -e $RED"Warning Your Are About to Remove Roundcube (y/n)?:"$RESET) " choice
+case "$choice" in
+y|Y )
+        echo " "
+        sleep 3
+        rm -rf /usr/local/nginx/html/roundcube
+        mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
+        mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
+        echo -e $YELLOW"Roundcube Deleted Successfully"$RESET
+;;
+n|N )
+        echo " "
+        echo -e $YELLOW"Uninstallation of Roundcube Declined"$RESET
+;;
+* )
+        echo " "
+        echo "Invalid Option Selected"
+        echo " "
+;;
+esac
 }
 
 function setup_amavisd_spamassassin_clamav
@@ -561,7 +656,7 @@ if [ "$POSTFIX" = "y" ]; then
         echo "Postfix Already existed. Skipping Uninstallation"
         echo " "
         HOST=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d":" -f2)
-        sed '/myhostname = $HOST/Q' /etc/postfix/main.cf
+        sed -i "/myhostname = $HOST/Q" /etc/postfix/main.cf
 else
         echo " "
         yum remove postfix -y
@@ -593,8 +688,8 @@ rm -rf /etc/dovecot
 rm -rf /usr/local/nginx/html/roundcube
 userdel -r vmail
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
-mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
+mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
 echo " "
 }
@@ -612,31 +707,45 @@ function add_email
 {
 echo " "
 read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+DOMAIN_NAME=$(printf $EMAIL_USER | cut -d"@" -f2)
+if [ -z "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT email FROM users WHERE email = '$EMAIL_USER';")" ] && [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT * FROM domains WHERE domain = '$DOMAIN_NAME';")" ]; then
 read -e -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
 echo " "
 echo -e $GREEN"Email ID $EMAIL_USER Successfully Added"$RESET
+else
+echo " "
+echo -e $RED"Impossible to Create Email Account as it Already Exist or Domain Doesnt Exist"$RESET
+fi
 }
 
 function remove_email
 {
-echo " "
 read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+echo " "
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT email FROM users WHERE email = '$EMAIL_USER';")" ]; then
 mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "DELETE FROM users WHERE email = '$EMAIL_USER';"
 echo " "
-echo -e $GREEN"Email ID $EMAIL_USER Successfully Removed from Database"$RESET
+echo -e $YELLOW"Email ID $EMAIL_USER Successfully Removed from Database"$RESET
+else
 echo " "
+echo -e $RED"Email ID $EMAIL_USER Doesnt Exist"$RESET
+fi
 }
 
 function change_password_email
 {
 echo " "
 read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT email FROM users WHERE email = '$EMAIL_USER';")" ]; then
 read -e -p "$(echo -e $GREEN"Enter Email New Password:"$RESET) " EMAIL_PASSWORD
 mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "update users set password=ENCRYPT('$EMAIL_PASSWORD') where email='$EMAIL_USER';"
 echo " "
-echo -e $GREEN"Password for $EMAIL_USER Successfully Changed"$RESET
+echo -e $YELLOW"Password for $EMAIL_USER Successfully Changed"$RESET
+else
 echo " "
+echo -e $RED"Cannot Change Password as Email Doesnt exist"$RESET
+fi
 }
 
 function start_display
@@ -647,21 +756,23 @@ function start_display
                         while [ "$b" = 1 ]; do
                                 echo -e $YELLOW"Select Option to Setup Mail Server on CMM:"$RESET
                                 echo " "
-                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM)"$RESET
                                 echo " "
                                 echo -e $GREEN"2) Setup Addons for Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
-                                echo -e $GREEN"3) Setup New Domain With Email ID If Doesnt Exist"$RESET
+                                echo -e $GREEN"3) Roundcube Installation , Updation & Deletion"$RESET
                                 echo " "
-                                echo -e $GREEN"4) Add/Remove New Email or Change Password of Existing Email"$RESET
+                                echo -e $GREEN"4) Create an Email for Non existing Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"5) Retrive DKIM Key for Domain"$RESET
+                                echo -e $GREEN"5) Add/Remove New Email or Change Password of Existing Email"$RESET
                                 echo " "
-                                echo -e $GREEN"6) Remove Mail Server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                echo -e $GREEN"6) Retrive and Regenerate DKIM Key for a Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"7) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo -e $GREEN"7) Remove Mail Server (Postfix, Dovecot, OpenDKIM)"$RESET
                                 echo " "
-                                echo -e $GREEN"8) Exit"$RESET
+                                echo -e $GREEN"8) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo " "
+                                echo -e $GREEN"9) Exit"$RESET
                                 echo " "
 
                                 #read input
@@ -670,7 +781,7 @@ function start_display
 
                                        if [ "$input" = '1' ]; then
                                                 echo " "
-                                                echo -e $YELLOW"Installing Mail server (Postfix, Dovecot, OpenDKIM and RoundCube)"$RESET
+                                                echo -e $YELLOW"Installing Mail server (Postfix, Dovecot, OpenDKIM)"$RESET
                                                 echo " "
                                                 sleep 1
                                                 input_data
@@ -684,35 +795,41 @@ function start_display
 
                                         elif [ "$input" = '3' ]; then
                                                 echo " "
-                                                echo -e $YELLOW"Add New Domain With Email ID"$RESET
+                                                echo -e $YELLOW"Roundcube Installation | Updation | Deletion"$RESET
+                                                sleep 1
+                                                roundcube_display
+
+                                        elif [ "$input" = '4' ]; then
+                                                echo " "
+                                                echo -e $YELLOW"Add A New Domain With Its Email ID"$RESET
                                                 echo " "
                                                 sleep 1
                                                 read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
-                                                read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
-                                                read -e -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
-                                                create_email_account
+                                                if [ -z "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT * FROM domains WHERE domain = '$DOMAIN_NAME';")" ]; then
+                                                        read -e -p "$(echo -e $GREEN"Enter Email Address:"$RESET) " EMAIL_USER
+                                                        read -e -p "$(echo -e $GREEN"Enter Email Password:"$RESET) " EMAIL_PASSWORD
+                                                        create_email_account
+                                                else
+                                                        echo " "
+                                                        echo -e $RED"Impossible to Add Existing Domain. Aborting :)"$RESET
+                                                        echo " "
+                                                fi
 
-                                        elif [ "$input" = '4' ]; then
+                                        elif [ "$input" = '5' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Setup New/Remove Email or Change Password"$RESET
                                                 sleep 1
                                                 add_remove_display
 
-                                        elif [ "$input" = '5' ]; then
+                                        elif [ "$input" = '6' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Retrive DKIM Key For A Domain"$RESET
                                                 echo " "
                                                 sleep 1
-                                                read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
-                                                echo " "
-                                                echo -e $GREEN"DKIM Key for Domain $DOMAIN_NAME is Below:"$RESET
-                                                echo " "
-                                                echo -e $YELLOW"default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
-                                                echo "$DKIM_KEY"
-                                                echo " "
+                                                dkim_display
                                                 echo " "
 
-                                        elif [ "$input" = '6' ]; then
+                                        elif [ "$input" = '7' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Removing Mail Server"$RESET
                                                 echo " "
@@ -734,7 +851,7 @@ function start_display
                                                         ;;
                                                 esac
 
-                                        elif [ "$input" = '7' ]; then
+                                        elif [ "$input" = '8' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
                                                 echo " "
@@ -756,7 +873,7 @@ function start_display
                                                         ;;
                                                 esac
 
-                                        elif [ "$input" = '8' ]; then
+                                        elif [ "$input" = '9' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Exiting"$RESET
                                                 echo " "
@@ -823,4 +940,93 @@ function add_remove_display
         done
 }
 
+function roundcube_display
+{
+        while [ "$r" = 1 ]; do
+             echo " "
+             echo -e $YELLOW"Select Option to Install | Update | Delete Roundcube"$RESET
+             echo " "
+             echo -e $GREEN"1) Do You Want to Install Roundcube"$RESET
+             echo " "
+             echo -e $GREEN"2) Do You Want to Update Roundcube"$RESET
+             echo " "
+             echo -e $GREEN"3) Do You Want to Delete Roundcube"$RESET
+             echo " "
+             echo -e $GREEN"4) Back To Previous Screen"$RESET
+             echo " "
+             #read inputss
+
+                read -e -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " inputss
+
+                if [ "$inputss" = '1' ]; then
+                        echo " "
+                        setup_roundcube
+                        echo " "
+
+                elif [ "$inputss" = '2' ]; then
+                        echo " "
+                        update_roundcube
+                        echo " "
+
+                elif [ "$inputss" = '3' ]; then
+                        echo " "
+                        delete_roundcube
+                        echo " "
+
+                elif [ "$inputss" = '4' ]; then
+                        echo " "
+                        start_display
+                        echo " "
+                else
+
+                        echo " "
+                        echo -e $RED"You Have Selected An Invalid Option"$RESET
+                        echo " "
+                fi
+        done
+}
+
+function roundcube_display
+{
+        while [ "$d" = 1 ]; do
+             echo " "
+             echo -e $YELLOW"Select Option to Retrieve  | Regenerate DKIM Key"$RESET
+             echo " "
+             echo -e $GREEN"1) Retrieve DKIM Key For A Domain"$RESET
+             echo " "
+             echo -e $GREEN"2) Regenerate DKIM Key For A Domain"$RESET
+             echo " "
+             echo -e $GREEN"4) Back To Previous Screen"$RESET
+             echo " "
+             #read inputss
+
+                read -e -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " inputss
+
+                if [ "$inputss" = '1' ]; then
+                        echo " "
+                        read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+                        echo " "
+                        echo -e $GREEN"DKIM Key for Domain $DOMAIN_NAME is Below:"$RESET
+                        echo " "
+                        echo -e $YELLOW"default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+                        echo "$DKIM_KEY"
+                        echo " "
+
+                elif [ "$inputss" = '2' ]; then
+                        echo " "
+                        recreate_dkim
+                        echo " "
+
+                elif [ "$inputss" = '3' ]; then
+                        echo " "
+                        start_display
+                        echo " "
+                else
+
+                        echo " "
+                        echo -e $RED"You Have Selected An Invalid Option"$RESET
+                        echo " "
+                fi
+        done
+}
 start_display
