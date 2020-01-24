@@ -605,6 +605,14 @@ smtps     inet  n       -       y       -       -       smtpd
   -o smtpd_recipient_restrictions=permit_mynetworks,permit_sasl_authenticated,reject
   -o content_filter=amavisfeed:[127.0.0.1]:10024
 
+smtp      inet  n       -       -       -       -       smtpd
+  -o content_filter=spamassassin
+
+spamassassin unix -     n       n       -       -       pipe
+        user=spamd
+        argv=/usr/bin/spamc -f -e
+        /usr/sbin/sendmail -oi -f ${sender} ${recipient}
+
 EOF
 
 
