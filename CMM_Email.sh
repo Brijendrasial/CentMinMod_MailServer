@@ -696,7 +696,6 @@ fi
 yum remove mailx mutt -y
 yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel -y
 rm -rf /etc/dovecot
-rm -rf /usr/local/nginx/html/roundcube
 userdel -r vmail
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
