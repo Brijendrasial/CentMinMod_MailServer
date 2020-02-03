@@ -38,6 +38,59 @@ MYSQL_ROOT=$(cat /root/.my.cnf | grep password | cut -d' ' -f1 | cut -d'=' -f2)
 DATABASE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 
+
+echo " "
+echo -e $GREEN"Initial Checkes are in Progress"$RESET
+echo " "
+if [ -n "$(grep -ir "smtpd_milters" /etc/postfix/main.cf)" ]; then
+        echo " "
+        echo -e $YELLOW"Mail Server is supposed to be Installed"$RESET
+        echo " "
+        echo -e $GREEN"Checking New Mail Functions That are Necessary"$RESET
+                if [ -n "$(grep -ir "check_policy_service" /etc/postfix/main.cf)" ]; then
+                        echo " "
+                        echo -e $YELLOW"SPF Policy Already Exist"$RESET
+                        echo " "
+                else
+                        echo " "
+                        echo -e $YELLOW"New Mail Functionm SPF Policy Can be Installed."$RESET
+                        echo " "
+                        read -e -p "$(echo -e $GREEN"Do you Want to Install SPF Policy for Your Mail Server (y/n)?:"$RESET) " choice
+case "$choice" in
+y|Y )
+        echo " "
+        sleep 3
+        echo -e $GREEN"Installing SPF Policy"$RESET
+        echo " "
+        yum install pypolicyd-spf -y
+        sed -i '/reject_unauth_destination/ s/$/, check_policy_service unix:private\/spfcheck/' /etc/postfix/main.cf
+cat >> /etc/postfix/master.cf <<EOF
+spfcheck     unix  -       n       n       -       -       spawn
+       user=nobody argv=/bin/python /usr/libexec/postfix/policyd-spf
+EOF
+
+echo " "
+echo -e $GREEN"Installation of  SPF Policy Completed"$RESET
+echo " "
+sleep 2
+
+postfix reload
+
+;;
+n|N )
+        echo " "
+        echo -e $YELLOW"I Am Not Going to Enable SPF Policy"$RESET
+;;
+* )
+        echo " "
+        echo "Invalid Option Selected"
+        echo " "
+;;
+esac
+
+                fi
+fi
+
 function input_data
 {
 
@@ -374,6 +427,21 @@ EOF
 # apply permissions
 chgrp dovecot /etc/dovecot/dovecot-sql.conf
 chmod o= /etc/dovecot/dovecot-sql.conf
+
+spf_policy
+}
+
+function spf_policy
+{
+yum install pypolicyd-spf -y
+
+sed -i '/reject_unauth_destination/ s/$/, check_policy_service unix:private\/spfcheck/' /etc/postfix/main.cf
+
+cat >> /etc/postfix/master.cf <<EOF
+spfcheck     unix  -       n       n       -       -       spawn
+       user=nobody argv=/bin/python /usr/libexec/postfix/policyd-spf
+EOF
+
 setup_opendkim
 }
 
@@ -694,13 +762,15 @@ else
 fi
 
 yum remove mailx mutt -y
-yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel -y
+yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf -y
 rm -rf /etc/dovecot
 userdel -r vmail
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
 mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
+sed -i -e '/^spfcheck/,+1d' /etc/postfix/master.cf
+sed -i -e '/^dovecot/,+1d' /etc/postfix/master.cf
 echo " "
 }
 
@@ -766,7 +836,7 @@ function start_display
                         while [ "$b" = 1 ]; do
                                 echo -e $YELLOW"Select Option to Setup Mail Server on CMM:"$RESET
                                 echo " "
-                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM)"$RESET
+                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM, SPF Policy)"$RESET
                                 echo " "
                                 echo -e $GREEN"2) Setup Addons for Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
@@ -791,7 +861,7 @@ function start_display
 
                                        if [ "$input" = '1' ]; then
                                                 echo " "
-                                                echo -e $YELLOW"Installing Mail server (Postfix, Dovecot, OpenDKIM)"$RESET
+                                                echo -e $YELLOW"Installing Mail server (Postfix, Dovecot, OpenDKIM, SPF Policy)"$RESET
                                                 echo " "
                                                 sleep 1
                                                 input_data
