@@ -857,7 +857,7 @@ function start_display
 
                                 #read input
 
-                                read -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " input
+                                read -e -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " input
 
                                        if [ "$input" = '1' ]; then
                                                 echo " "
