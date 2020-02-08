@@ -34,6 +34,7 @@ b=1
 bs=1
 r=1
 d=1
+f=1
 MYSQL_ROOT=$(cat /root/.my.cnf | grep password | cut -d' ' -f1 | cut -d'=' -f2)
 DATABASE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
@@ -828,6 +829,103 @@ echo -e $RED"Cannot Change Password as Email Doesnt exist"$RESET
 fi
 }
 
+function add_forwarding
+{
+echo " "
+echo -e $YELLOW"You Have Selected Option to Add Forwarding"$RESET
+echo " "
+read -e -p "$(echo -e $GREEN"Enter Soruce Email:"$RESET) " SOURCE_EMAIL
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT email FROM users WHERE email = '$SOURCE_EMAIL';")" ]; then
+echo " "
+read -e -p "$(echo -e $GREEN"Enter Destination  Email:"$RESET) " DESTINATION_EMAIL
+echo " "
+mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "INSERT INTO  forwardings (\`source\`, \`destination\`) VALUES ('$SOURCE_EMAIL', '$DESTINATION_EMAIL');"
+echo " "
+echo -e $YELLOW"Successfully Forwarded mail from $SOURCE_EMAIL to $DESTINATION_EMAIL"$RESET
+else
+echo " "
+echo -e $RED"Email $SOURCE_EMAIL Doesnt Exist so Impossible to Forward"$RESET
+fi
+}
+
+function remove_forwarding
+{
+echo " "
+echo -e $YELLOW"You Have Selected Option to Remove Forwarding"$RESET
+echo " "
+read -e -p "$(echo -e $GREEN"Enter Soruce Email:"$RESET) " SOURCE_EMAIL
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT source FROM forwardings WHERE source = '$SOURCE_EMAIL';")" ]; then
+echo " "
+echo -e $YELLOW"Looks Like Forwarding is Set"$RESET
+read -e -p "$(echo -e $RED"Warning Your Are About to Remove Forwarding for $SOURCE_EMAIL (y/n)?:"$RESET) " choice
+case "$choice" in
+               y|Y )
+                        echo " "
+                        echo -e $YELLOW"Removing Forwarding for Email $SOURCE_EMAIL"$RESET
+                        echo " "
+                        mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "DELETE FROM forwardings where source = '$SOURCE_EMAIL';"
+                        echo " "
+                        echo -e $YELLOW"Forwarding for Email $SOURCE_EMAIL Sucessfully Removed"$RESET
+                        echo " "
+        ;;
+               n|N )
+                        echo " "
+                        echo -e $YELLOW"You Asked Me to Not Remove Forwarding :)"$RESET
+                        echo " "
+               ;;
+               * )
+                        echo " "
+                        echo "Invalid Option Selected"
+                        echo " "
+               ;;
+esac
+else
+        echo " "
+        echo -e $RED"Email $SOURCE_EMAIL Doesnt Seems to Be Forwarded"$RESET
+        echo " "
+fi
+}
+
+function update_forwarding
+{
+echo " "
+echo -e $YELLOW"You Have Selected Option to Update Forwarding"$RESET
+echo " "
+read -e -p "$(echo -e $GREEN"Enter Soruce Email:"$RESET) " SOURCE_EMAIL
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT source FROM forwardings WHERE source = '$SOURCE_EMAIL';")" ]; then
+echo " "
+echo -e $YELLOW"Looks Like Forwarding Email is Set"$RESET
+read -e -p "$(echo -e $RED"Warning Your Are About to Update Forwarding Email for $SOURCE_EMAIL (y/n)?:"$RESET) " choice
+case "$choice" in
+               y|Y )
+                        echo " "
+                        echo -e $YELLOW"Update Forwarding Email for Email $SOURCE_EMAIL"$RESET
+                        echo " "
+                        read -e -p "$(echo -e $GREEN"Enter New Destination Email:"$RESET) " DESTINATION_EMAIL
+                        echo " "
+                        mysql -u root --password=${MYSQL_ROOT} -D mail -B -N -e "update forwardings set destination=('$DESTINATION_EMAIL') where source='$SOURCE_EMAIL';"
+                        echo " "
+                        echo -e $YELLOW"Forwarding for Email $SOURCE_EMAIL Sucessfully Removed"$RESET
+                        echo " "
+        ;;
+               n|N )
+                        echo " "
+                        echo -e $YELLOW"You Asked Me to Not Update Forwarding Email:)"$RESET
+                        echo " "
+               ;;
+               * )
+                        echo " "
+                        echo "Invalid Option Selected"
+                        echo " "
+               ;;
+esac
+else
+        echo " "
+        echo -e $RED"Email $SOURCE_EMAIL Doesnt Seems to Be Forwarded"$RESET
+        echo " "
+fi
+}
+
 function start_display
 {
         if [ -e "/etc/centminmod" ]; then
@@ -848,11 +946,13 @@ function start_display
                                 echo " "
                                 echo -e $GREEN"6) Retrive and Regenerate DKIM Key for a Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"7) Remove Mail Server (Postfix, Dovecot, OpenDKIM)"$RESET
+                                echo -e $GREEN"7) Add/Remove Email Forwarding"$RESET
                                 echo " "
-                                echo -e $GREEN"8) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo -e $GREEN"8) Remove Mail Server (Postfix, Dovecot, OpenDKIM)"$RESET
                                 echo " "
-                                echo -e $GREEN"9) Exit"$RESET
+                                echo -e $GREEN"9) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo " "
+                                echo -e $GREEN"10) Exit"$RESET
                                 echo " "
 
                                 #read input
@@ -911,6 +1011,15 @@ function start_display
 
                                         elif [ "$input" = '7' ]; then
                                                 echo " "
+                                                echo -e $YELLOW"Setup or Remove Email Forwarding"$RESET
+                                                echo " "
+                                                sleep 1
+                                                forwarding_display
+                                                echo " "
+
+
+                                        elif [ "$input" = '8' ]; then
+                                                echo " "
                                                 echo -e $YELLOW"Removing Mail Server"$RESET
                                                 echo " "
                                                 sleep 1
@@ -931,7 +1040,7 @@ function start_display
                                                         ;;
                                                 esac
 
-                                        elif [ "$input" = '8' ]; then
+                                        elif [ "$input" = '9' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
                                                 echo " "
@@ -953,7 +1062,7 @@ function start_display
                                                         ;;
                                                 esac
 
-                                        elif [ "$input" = '9' ]; then
+                                        elif [ "$input" = '10' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Exiting"$RESET
                                                 echo " "
@@ -1065,6 +1174,53 @@ function roundcube_display
                 fi
         done
 }
+
+function forwarding_display
+{
+        while [ "$f" = 1 ]; do
+             echo " "
+             echo -e $YELLOW"Select Option to Add or Remove Email Forwarding"$RESET
+             echo " "
+             echo -e $GREEN"1) Add Email Forwarding"$RESET
+             echo " "
+             echo -e $GREEN"2) Remove Email Forwarding"$RESET
+             echo " "
+             echo -e $GREEN"3) Update Forwarding Email"$RESET
+             echo " "
+             echo -e $GREEN"4) Back To Previous Screen"$RESET
+             echo " "
+             #read inputss
+
+                read -e -p "$(echo -e $GREEN"Please enter your selection:"$RESET) " inputss
+
+                if [ "$inputss" = '1' ]; then
+                        echo " "
+                        add_forwarding
+                        echo " "
+
+                elif [ "$inputss" = '2' ]; then
+                        echo " "
+                        remove_forwarding
+                        echo " "
+
+                elif [ "$inputss" = '3' ]; then
+                        echo " "
+                        update_forwarding
+                        echo " "
+
+                elif [ "$inputss" = '4' ]; then
+                        echo " "
+                        start_display
+                        echo " "
+                else
+
+                        echo " "
+                        echo -e $RED"You Have Selected An Invalid Option"$RESET
+                        echo " "
+                fi
+        done
+}
+
 
 function dkim_display
 {
