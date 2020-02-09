@@ -834,7 +834,7 @@ function add_forwarding
 echo " "
 echo -e $YELLOW"You Have Selected Option to Add Forwarding"$RESET
 echo " "
-read -e -p "$(echo -e $GREEN"Enter Soruce Email:"$RESET) " SOURCE_EMAIL
+read -e -p "$(echo -e $GREEN"Enter Source Email:"$RESET) " SOURCE_EMAIL
 if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT email FROM users WHERE email = '$SOURCE_EMAIL';")" ]; then
 echo " "
 read -e -p "$(echo -e $GREEN"Enter Destination  Email:"$RESET) " DESTINATION_EMAIL
@@ -853,7 +853,7 @@ function remove_forwarding
 echo " "
 echo -e $YELLOW"You Have Selected Option to Remove Forwarding"$RESET
 echo " "
-read -e -p "$(echo -e $GREEN"Enter Soruce Email:"$RESET) " SOURCE_EMAIL
+read -e -p "$(echo -e $GREEN"Enter Source Email:"$RESET) " SOURCE_EMAIL
 if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT source FROM forwardings WHERE source = '$SOURCE_EMAIL';")" ]; then
 echo " "
 echo -e $YELLOW"Looks Like Forwarding is Set"$RESET
@@ -891,7 +891,7 @@ function update_forwarding
 echo " "
 echo -e $YELLOW"You Have Selected Option to Update Forwarding"$RESET
 echo " "
-read -e -p "$(echo -e $GREEN"Enter Soruce Email:"$RESET) " SOURCE_EMAIL
+read -e -p "$(echo -e $GREEN"Enter Source Email:"$RESET) " SOURCE_EMAIL
 if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT source FROM forwardings WHERE source = '$SOURCE_EMAIL';")" ]; then
 echo " "
 echo -e $YELLOW"Looks Like Forwarding Email is Set"$RESET
