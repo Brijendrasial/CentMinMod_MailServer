@@ -511,6 +511,7 @@ systemctl restart  opendkim
 systemctl enable opendkim
 systemctl restart postfix
 systemctl restart dovecot
+systemctl enable dovecot
 
 echo " "
 echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
