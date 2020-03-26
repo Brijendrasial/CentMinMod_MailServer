@@ -557,7 +557,7 @@ sed -i "s|^\(\$config\['smtp_pass'\] =\).*$|\1 \'%p\';|" /usr/local/nginx/html/r
 sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/local/nginx/html/roundcube/config/defaults.inc.php
 #sed -i "s|^\(\$config\['support_url'\] =\).*$|\1 \'mailto:${E}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
-deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9-_#&!*%?' | fold -w 24 | head -n 1)
+deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9-#&!*%?' | fold -w 24 | head -n 1)
 sed -i "s|^\(\$config\['des_key'\] =\).*$|\1 \'${deskey}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
 MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
