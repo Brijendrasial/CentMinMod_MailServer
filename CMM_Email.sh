@@ -1,4 +1,4 @@
-#!/bin/bash
+e!/bin/bash
 
 # Mail Server Installer Script for CentMinMod Installer [CMM]
 
@@ -513,15 +513,9 @@ systemctl restart postfix
 systemctl restart dovecot
 systemctl enable dovecot
 
-echo " "
-echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
-echo " "
-echo -e $YELLOW"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
-echo " "
-echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
-echo  " "
-echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
-echo  " "
+
+setup_amavisd_spamassassin_clamav
+
 
 }
 
@@ -557,7 +551,7 @@ sed -i "s|^\(\$config\['smtp_pass'\] =\).*$|\1 \'%p\';|" /usr/local/nginx/html/r
 sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/local/nginx/html/roundcube/config/defaults.inc.php
 #sed -i "s|^\(\$config\['support_url'\] =\).*$|\1 \'mailto:${E}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
-deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9-#&!*%?' | fold -w 24 | head -n 1)
+deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 sed -i "s|^\(\$config\['des_key'\] =\).*$|\1 \'${deskey}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
 
 MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
@@ -718,10 +712,31 @@ systemctl enable clamd@amavisd
 systemctl restart postfix
 
 echo " "
+echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo " "
+echo -e $YELLOW"SPF record To Be Set As Follows v=spf1 mx a ip4:$(hostname --ip-address) ~all"$RESET
+echo " "
+echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RESET
+echo  " "
+echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
+echo  " "
 }
 
 function remove_mail_server
 {
+yum remove mailx mutt -y
+yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
+rm -rf /etc/dovecot
+userdel -r vmail
+userdel -r spamd
+mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
+mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
+mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
+mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
+sed -i -e '/^spfcheck/,+1d' /etc/postfix/master.cf
+sed -i -e '/^dovecot/,+1d' /etc/postfix/master.cf
+sed -i "/^amavisfeed/Q" /etc/postfix/master.cf
+echo " "
 
 POSTFIX=$(grep -ir "EXIST_POSTFIX" /etc/centminmod/cmmemailconfig/email.conf | cut -d":" -f2)
 if [ "$POSTFIX" = "y" ]; then
@@ -730,6 +745,7 @@ if [ "$POSTFIX" = "y" ]; then
         echo " "
         HOST=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d":" -f2)
         sed -i "/myhostname = $HOST/Q" /etc/postfix/main.cf
+        systemctl restart postfix
 else
         echo " "
         yum remove postfix -y
@@ -747,7 +763,8 @@ if [ "$OPENDKIM" = "y" ]; then
                 echo "Listing Content of Column Domain $bss"
                 echo " "
                 rm -rf /etc/opendkim/keys/$bss
-                done
+        done
+        systemctl restart opendkim
 else
         echo " "
         yum remove opendkim -y
@@ -755,27 +772,6 @@ else
         echo " "
 fi
 
-yum remove mailx mutt -y
-yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf -y
-rm -rf /etc/dovecot
-userdel -r vmail
-mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
-mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
-mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
-mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
-sed -i -e '/^spfcheck/,+1d' /etc/postfix/master.cf
-sed -i -e '/^dovecot/,+1d' /etc/postfix/master.cf
-sed -i "/^amavisfeed/Q" /etc/postfix/master.cf
-echo " "
-}
-
-function remove_mail_addons
-{
-yum remove spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
-userdel -r spamd
-systemctl restart postfix
-systemctl restart dovecot
-echo " "
 }
 
 function add_email
@@ -928,25 +924,21 @@ function start_display
                         while [ "$b" = 1 ]; do
                                 echo -e $YELLOW"Select Option to Setup Mail Server on CMM:"$RESET
                                 echo " "
-                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM, SPF Policy)"$RESET
+                                echo -e $GREEN"1) Setup Mail Server (Postfix, Dovecot, OpenDKIM, SPF Policy, Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
-                                echo -e $GREEN"2) Setup Addons for Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
+                                echo -e $GREEN"2) Roundcube Installation , Updation & Deletion"$RESET
                                 echo " "
-                                echo -e $GREEN"3) Roundcube Installation , Updation & Deletion"$RESET
+                                echo -e $GREEN"3) Create an Email for Non existing Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"4) Create an Email for Non existing Domain"$RESET
+                                echo -e $GREEN"4) Add/Remove New Email or Change Password of Existing Email"$RESET
                                 echo " "
-                                echo -e $GREEN"5) Add/Remove New Email or Change Password of Existing Email"$RESET
+                                echo -e $GREEN"5) Retrive and Regenerate DKIM Key for a Domain"$RESET
                                 echo " "
-                                echo -e $GREEN"6) Retrive and Regenerate DKIM Key for a Domain"$RESET
+                                echo -e $GREEN"6) Add/Remove Email Forwarding"$RESET
                                 echo " "
-                                echo -e $GREEN"7) Add/Remove Email Forwarding"$RESET
+                                echo -e $GREEN"7) Remove Mail Server (Postfix, Dovecot, OpenDKIM, SPF Policy,  Amavisd, SpamAssassin and Clamav)"$RESET
                                 echo " "
-                                echo -e $GREEN"8) Remove Mail Server (Postfix, Dovecot, OpenDKIM)"$RESET
-                                echo " "
-                                echo -e $GREEN"9) Remove Addons from Mail Server (Amavisd, SpamAssassin and Clamav)"$RESET
-                                echo " "
-                                echo -e $GREEN"10) Exit"$RESET
+                                echo -e $GREEN"8) Exit"$RESET
                                 echo " "
 
                                 #read input
@@ -962,18 +954,11 @@ function start_display
 
                                         elif [ "$input" = '2' ]; then
                                                 echo " "
-                                                echo -e $YELLOW"Installing Addons for Mail Server (Amavisd, Spamassassin and Clamav)"$RESET
-                                                echo " "
-                                                sleep 1
-                                                setup_amavisd_spamassassin_clamav
-
-                                        elif [ "$input" = '3' ]; then
-                                                echo " "
                                                 echo -e $YELLOW"Roundcube Installation | Updation | Deletion"$RESET
                                                 sleep 1
                                                 roundcube_display
 
-                                        elif [ "$input" = '4' ]; then
+                                        elif [ "$input" = '3' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Add A New Domain With Its Email ID"$RESET
                                                 echo " "
@@ -989,13 +974,13 @@ function start_display
                                                         echo " "
                                                 fi
 
-                                        elif [ "$input" = '5' ]; then
+                                        elif [ "$input" = '4' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Setup New/Remove Email or Change Password"$RESET
                                                 sleep 1
                                                 add_remove_display
 
-                                        elif [ "$input" = '6' ]; then
+                                        elif [ "$input" = '5' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Retrive DKIM Key For A Domain"$RESET
                                                 echo " "
@@ -1003,7 +988,7 @@ function start_display
                                                 dkim_display
                                                 echo " "
 
-                                        elif [ "$input" = '7' ]; then
+                                        elif [ "$input" = '6' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Setup or Remove Email Forwarding"$RESET
                                                 echo " "
@@ -1011,8 +996,7 @@ function start_display
                                                 forwarding_display
                                                 echo " "
 
-
-                                        elif [ "$input" = '8' ]; then
+                                        elif [ "$input" = '7' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Removing Mail Server"$RESET
                                                 echo " "
@@ -1021,6 +1005,7 @@ function start_display
                                                 case "$choice" in
                                                         y|Y )
                                                                 remove_mail_server
+
                                                         ;;
                                                         n|N )
                                                                 echo " "
@@ -1034,29 +1019,7 @@ function start_display
                                                         ;;
                                                 esac
 
-                                        elif [ "$input" = '9' ]; then
-                                                echo " "
-                                                echo -e $YELLOW"Removing Amavisd, SpamAssassin and Clamav for Mail server"$RESET
-                                                echo " "
-                                                sleep 1
-                                                read -e -p "$(echo -e $RED"Warning Your Are About to Remove Mail Server Addons(y/n)?:"$RESET) " choice
-                                                case "$choice" in
-                                                        y|Y )
-                                                                remove_mail_addons
-                                                        ;;
-                                                        n|N )
-                                                                echo " "
-                                                                echo -e $YELLOW"Uninstallation of Mail Server Addons Declined"$RESET
-                                                                echo " "
-                                                        ;;
-                                                        * )
-                                                                echo " "
-                                                                echo "Invalid Option Selected"
-                                                                echo " "
-                                                        ;;
-                                                esac
-
-                                        elif [ "$input" = '10' ]; then
+                                        elif [ "$input" = '8' ]; then
                                                 echo " "
                                                 echo -e $YELLOW"Exiting"$RESET
                                                 echo " "
