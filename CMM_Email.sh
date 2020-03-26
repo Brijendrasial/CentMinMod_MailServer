@@ -528,7 +528,7 @@ echo  " "
 function setup_roundcube
 {
 yum install java-11-openjdk-devel -y
-wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/1.4.1/roundcubemail-1.4.1-complete.tar.gz
+wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/1.4.3/roundcubemail-1.4.3-complete.tar.gz
 tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-*.tar.gz
 rm -f /usr/local/nginx/html/roundcubemail-*.tar.gz
 mv /usr/local/nginx/html/roundcubemail-* /usr/local/nginx/html/roundcube
