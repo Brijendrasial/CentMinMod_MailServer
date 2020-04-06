@@ -1,4 +1,4 @@
-e!/bin/bash
+#!/bin/bash
 
 # Mail Server Installer Script for CentMinMod Installer [CMM]
 
@@ -213,7 +213,7 @@ function create_email_account
 {
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO domains (domain) VALUES ('$DOMAIN_NAME');"
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO users (email, password) VALUES ('$EMAIL_USER', ENCRYPT('$EMAIL_PASSWORD'));"
-if [ "$input" = '2' ] || [ "$input" = '3' ]; then
+if [ "$input" = '3' ] || [ "$input" = '4' ]; then
 mkdir /etc/opendkim/keys/$DOMAIN_NAME
 opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
 chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
