@@ -724,6 +724,7 @@ echo  " "
 
 function remove_mail_server
 {
+cp -R /home/vmail /home/vmail_old
 yum remove mailx mutt -y
 yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
 rm -rf /etc/dovecot
