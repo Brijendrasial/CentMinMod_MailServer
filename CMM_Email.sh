@@ -1222,8 +1222,8 @@ function dkim_display
 }
 start_display
 
-} 2>&1 | tee /var/log/mailserverinstall.log
+} 2>&1 | tee /var/log/mailserver.log
 
 echo " "
-echo "Your Installation log is saved at /var/log/mailserverinstall.log"$RESET
+echo "Your Installation log is saved at /var/log/mailserver.log"$RESET
 echo " "
