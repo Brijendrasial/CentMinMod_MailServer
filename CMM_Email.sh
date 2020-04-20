@@ -162,54 +162,6 @@ mysql -uroot -p$MYSQL_ROOT -D mail -e "CREATE TABLE transport ( domain varchar(1
 create_email_account
 }
 
-function dkim_generate
-{
-mkdir /etc/opendkim/keys/$DOMAIN_NAME
-opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
-chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
-mv /etc/opendkim/keys/$DOMAIN_NAME/default.private /etc/opendkim/keys/$DOMAIN_NAME/default
-
-cat >> /etc/opendkim/KeyTable << EOF
-default._domainkey.$DOMAIN_NAME $DOMAIN_NAME:default:/etc/opendkim/keys/$DOMAIN_NAME/default
-EOF
-
-cat >> /etc/opendkim/SigningTable << EOF
-*@$DOMAIN_NAME default._domainkey.$DOMAIN_NAME
-EOF
-
-cat >> /etc/opendkim/TrustedHosts << EOF
-$DOMAIN_NAME
-EOF
-
-echo " "
-echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
-echo " "
-}
-
-function recreate_dkim
-{
-echo " "
-read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
-echo " "
-if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT * FROM domains WHERE domain = '$DOMAIN_NAME';")" ]; then
-        echo -e $GREEN"Deleting  DKIM key for $DOMAIN_NAME"$RESET
-        sleep 3
-        echo " "
-        rm -rf /etc/opendkim/keys/$DOMAIN_NAME
-        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/KeyTable
-        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/SigningTable
-        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/TrustedHosts
-        echo " "
-        echo -e $GREEN"Creating DKIM key for $DOMAIN_NAME"$RESET
-        sleep 3
-        echo " "
-        dkim_generate
-else
-        echo " "
-        echo -e $RED"Domain $DOMAIN_NAME Not Found So Its Useless to Regenerate DKIM Key"
-fi
-}
-
 function create_email_account
 {
 mysql -uroot -p$MYSQL_ROOT -D mail -e "INSERT INTO domains (domain) VALUES ('$DOMAIN_NAME');"
@@ -514,96 +466,7 @@ systemctl restart postfix
 systemctl restart dovecot
 systemctl enable dovecot
 
-
 setup_amavisd_spamassassin_clamav
-
-
-}
-
-function setup_roundcube
-{
-yum install java-11-openjdk-devel -y
-wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/1.4.3/roundcubemail-1.4.3-complete.tar.gz
-tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-*.tar.gz
-rm -f /usr/local/nginx/html/roundcubemail-*.tar.gz
-mv /usr/local/nginx/html/roundcubemail-* /usr/local/nginx/html/roundcube
-
-mv /usr/local/nginx/html/roundcube/composer.json-dist /usr/local/nginx/html/roundcube/composer.json
-
-(cd /usr/local/nginx/html/ && curl -sS https://getcomposer.org/installer | php && php composer.phar install --no-dev)
-
-chown nginx:nginx -R /usr/local/nginx/html/roundcube
-chmod 777 -R /usr/local/nginx/html/roundcube/temp/
-chmod 777 -R /usr/local/nginx/html/roundcube/logs/
-
-mysql -uroot -p$MYSQL_ROOT -e "CREATE DATABASE roundcube;"
-mysql -uroot -p$MYSQL_ROOT -e "CREATE USER roundcube@localhost IDENTIFIED BY '$ROUNDCUBE_PASSWORD';"
-mysql -uroot -p$MYSQL_ROOT -e "GRANT ALL PRIVILEGES ON roundcube.* TO 'roundcube'@'localhost';"
-mysql -uroot -p$MYSQL_ROOT -e "FLUSH PRIVILEGES;"
-
-mysql -u root -p$MYSQL_ROOT 'roundcube' < /usr/local/nginx/html/roundcube/SQL/mysql.initial.sql
-
-cp /usr/local/nginx/html/roundcube/config/config.inc.php.sample /usr/local/nginx/html/roundcube/config/config.inc.php
-
-sed -i "s|^\(\$config\['db_dsnw'\] =\).*$|\1 \'mysqli://roundcube:$ROUNDCUBE_PASSWORD@localhost/roundcube\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-sed -i "s|^\(\$config\['smtp_server'\] =\).*$|\1 \'localhost\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-sed -i "s|^\(\$config\['smtp_user'\] =\).*$|\1 \'%u\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-sed -i "s|^\(\$config\['smtp_pass'\] =\).*$|\1 \'%p\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/local/nginx/html/roundcube/config/defaults.inc.php
-#sed -i "s|^\(\$config\['support_url'\] =\).*$|\1 \'mailto:${E}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-
-deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-sed -i "s|^\(\$config\['des_key'\] =\).*$|\1 \'${deskey}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-
-MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
-sed -i "s|^\(\$config\['smtp_server'\] =\).*$|\1 \'tls://$MY_HOSTNAME_NAME\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
-
-nprestart
-
-rm -rf /usr/local/nginx/html/roundcube/installer
-
-echo " "
-echo -e $YELLOW"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
-echo  " "
-}
-
-function update_roundcube
-{
-echo " "
-read -e -p "$(echo -e $RED"Enter the version of roundcube you want to upgrade i.e 1.4.2:"$RESET) " rndc
-echo " "
-wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/$rndc/roundcubemail-$rndc-complete.tar.gz
-tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
-rm -rf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
-mv /usr/local/nginx/html/roundcubemail-$rndc* /usr/local/nginx/html/roundcube-$rndc
-/usr/local/nginx/html/roundcube-$rndc/bin/installto.sh /usr/local/nginx/html/roundcube << EOF
-y
-EOF
-rm -rf /usr/local/nginx/html/roundcube-$rndc
-}
-
-function delete_roundcube
-{
-read -e -p "$(echo -e $RED"Warning Your Are About to Remove Roundcube (y/n)?:"$RESET) " choice
-case "$choice" in
-y|Y )
-        echo " "
-        sleep 3
-        rm -rf /usr/local/nginx/html/roundcube
-        mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
-        mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
-        echo -e $YELLOW"Roundcube Deleted Successfully"$RESET
-;;
-n|N )
-        echo " "
-        echo -e $YELLOW"Uninstallation of Roundcube Declined"$RESET
-;;
-* )
-        echo " "
-        echo "Invalid Option Selected"
-        echo " "
-;;
-esac
 }
 
 function setup_amavisd_spamassassin_clamav
@@ -721,6 +584,144 @@ echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RES
 echo  " "
 echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
 echo  " "
+} 2>&1 | tee /var/log/mailserver.log
+
+echo " "
+echo "Your Installation log is saved at /var/log/mailserver.log"$RESET
+echo " "
+
+function dkim_generate
+{
+mkdir /etc/opendkim/keys/$DOMAIN_NAME
+opendkim-genkey -D /etc/opendkim/keys/$DOMAIN_NAME/ -d $DOMAIN_NAME -s default
+chown -R opendkim: /etc/opendkim/keys/$DOMAIN_NAME
+mv /etc/opendkim/keys/$DOMAIN_NAME/default.private /etc/opendkim/keys/$DOMAIN_NAME/default
+
+cat >> /etc/opendkim/KeyTable << EOF
+default._domainkey.$DOMAIN_NAME $DOMAIN_NAME:default:/etc/opendkim/keys/$DOMAIN_NAME/default
+EOF
+
+cat >> /etc/opendkim/SigningTable << EOF
+*@$DOMAIN_NAME default._domainkey.$DOMAIN_NAME
+EOF
+
+cat >> /etc/opendkim/TrustedHosts << EOF
+$DOMAIN_NAME
+EOF
+
+echo " "
+echo -e $YELLOW"Your DKIM Details for domain $DOMAIN_NAME is default._domainkey.$DOMAIN_NAME $(cat /etc/opendkim/keys/$DOMAIN_NAME/default.txt | grep -Pzo 'v=DKIM1[^)]+(?=" )' | sed 's/h=rsa-sha256;/h=sha256;/' | perl -0e '$x = <>; $x =~ s/"\s+"//sg; print $x')"$RESET
+echo " "
+}
+
+function recreate_dkim
+{
+echo " "
+read -e -p "$(echo -e $GREEN"Enter Domain Name:"$RESET) " DOMAIN_NAME
+echo " "
+if [ -n "$(mysql -uroot -p$MYSQL_ROOT -D mail -B -N -e "SELECT * FROM domains WHERE domain = '$DOMAIN_NAME';")" ]; then
+        echo -e $GREEN"Deleting  DKIM key for $DOMAIN_NAME"$RESET
+        sleep 3
+        echo " "
+        rm -rf /etc/opendkim/keys/$DOMAIN_NAME
+        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/KeyTable
+        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/SigningTable
+        sed -i "/$DOMAIN_NAME/d" /etc/opendkim/TrustedHosts
+        echo " "
+        echo -e $GREEN"Creating DKIM key for $DOMAIN_NAME"$RESET
+        sleep 3
+        echo " "
+        dkim_generate
+else
+        echo " "
+        echo -e $RED"Domain $DOMAIN_NAME Not Found So Its Useless to Regenerate DKIM Key"
+fi
+}
+
+function setup_roundcube
+{
+yum install java-11-openjdk-devel -y
+wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/1.4.3/roundcubemail-1.4.3-complete.tar.gz
+tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-*.tar.gz
+rm -f /usr/local/nginx/html/roundcubemail-*.tar.gz
+mv /usr/local/nginx/html/roundcubemail-* /usr/local/nginx/html/roundcube
+
+mv /usr/local/nginx/html/roundcube/composer.json-dist /usr/local/nginx/html/roundcube/composer.json
+
+(cd /usr/local/nginx/html/ && curl -sS https://getcomposer.org/installer | php && php composer.phar install --no-dev)
+
+chown nginx:nginx -R /usr/local/nginx/html/roundcube
+chmod 777 -R /usr/local/nginx/html/roundcube/temp/
+chmod 777 -R /usr/local/nginx/html/roundcube/logs/
+
+mysql -uroot -p$MYSQL_ROOT -e "CREATE DATABASE roundcube;"
+mysql -uroot -p$MYSQL_ROOT -e "CREATE USER roundcube@localhost IDENTIFIED BY '$ROUNDCUBE_PASSWORD';"
+mysql -uroot -p$MYSQL_ROOT -e "GRANT ALL PRIVILEGES ON roundcube.* TO 'roundcube'@'localhost';"
+mysql -uroot -p$MYSQL_ROOT -e "FLUSH PRIVILEGES;"
+
+mysql -u root -p$MYSQL_ROOT 'roundcube' < /usr/local/nginx/html/roundcube/SQL/mysql.initial.sql
+
+cp /usr/local/nginx/html/roundcube/config/config.inc.php.sample /usr/local/nginx/html/roundcube/config/config.inc.php
+
+sed -i "s|^\(\$config\['db_dsnw'\] =\).*$|\1 \'mysqli://roundcube:$ROUNDCUBE_PASSWORD@localhost/roundcube\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+sed -i "s|^\(\$config\['smtp_server'\] =\).*$|\1 \'localhost\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+sed -i "s|^\(\$config\['smtp_user'\] =\).*$|\1 \'%u\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+sed -i "s|^\(\$config\['smtp_pass'\] =\).*$|\1 \'%p\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+sed -i "s|^\(\$config\['create_default_folders'\] =\).*$|\1 \'true\';|" /usr/local/nginx/html/roundcube/config/defaults.inc.php
+#sed -i "s|^\(\$config\['support_url'\] =\).*$|\1 \'mailto:${E}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+
+deskey=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+sed -i "s|^\(\$config\['des_key'\] =\).*$|\1 \'${deskey}\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+
+MY_HOSTNAME_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf | cut -d':' -f2)
+sed -i "s|^\(\$config\['smtp_server'\] =\).*$|\1 \'tls://$MY_HOSTNAME_NAME\';|" /usr/local/nginx/html/roundcube/config/config.inc.php
+
+nprestart
+
+rm -rf /usr/local/nginx/html/roundcube/installer
+
+echo " "
+echo -e $YELLOW"Your Server Roundcube Access url is http://$(hostname --ip-address)/roundcube"$RESET
+echo  " "
+}
+
+function update_roundcube
+{
+echo " "
+read -e -p "$(echo -e $RED"Enter the version of roundcube you want to upgrade i.e 1.4.2:"$RESET) " rndc
+echo " "
+wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/$rndc/roundcubemail-$rndc-complete.tar.gz
+tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
+rm -rf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
+mv /usr/local/nginx/html/roundcubemail-$rndc* /usr/local/nginx/html/roundcube-$rndc
+/usr/local/nginx/html/roundcube-$rndc/bin/installto.sh /usr/local/nginx/html/roundcube << EOF
+y
+EOF
+rm -rf /usr/local/nginx/html/roundcube-$rndc
+}
+
+function delete_roundcube
+{
+read -e -p "$(echo -e $RED"Warning Your Are About to Remove Roundcube (y/n)?:"$RESET) " choice
+case "$choice" in
+y|Y )
+        echo " "
+        sleep 3
+        rm -rf /usr/local/nginx/html/roundcube
+        mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
+        mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
+        echo -e $YELLOW"Roundcube Deleted Successfully"$RESET
+;;
+n|N )
+        echo " "
+        echo -e $YELLOW"Uninstallation of Roundcube Declined"$RESET
+;;
+* )
+        echo " "
+        echo "Invalid Option Selected"
+        echo " "
+;;
+esac
 }
 
 function remove_mail_server
@@ -1225,8 +1226,4 @@ function dkim_display
         done
 }
 start_display
-} 2>&1 | tee /var/log/mailserver.log
-
-echo " "
-echo "Your Installation log is saved at /var/log/mailserver.log"$RESET
-echo " "
+}
