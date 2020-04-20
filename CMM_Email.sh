@@ -4,7 +4,6 @@
 
 # Scripted by Brijendra Sial @ Bullten Web Hosting Solutions [https://www.bullten.com]
 
-{
 RED='\033[01;31m'
 RESET='\033[0m'
 GREEN='\033[01;32m'
@@ -688,7 +687,7 @@ echo  " "
 function update_roundcube
 {
 echo " "
-read -e -p "$(echo -e $RED"Enter the version of roundcube you want to upgrade i.e 1.4.2:"$RESET) " rndc
+read -e -p "$(echo -e $RED"Enter the version of roundcube you want to upgrade i.e 1.4.3:"$RESET) " rndc
 echo " "
 wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/releases/download/$rndc/roundcubemail-$rndc-complete.tar.gz
 tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
@@ -1226,5 +1225,3 @@ function dkim_display
         done
 }
 start_display
-
-} 2>&1 | tee /var/log/mailserver.log
