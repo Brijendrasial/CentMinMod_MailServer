@@ -730,8 +730,6 @@ userdel -r vmail
 userdel -r spamd
 mysql -uroot -p$MYSQL_ROOT -e "drop database mail;"
 mysql -uroot -p$MYSQL_ROOT -e "drop user mail_admin@localhost;"
-mysql -uroot -p$MYSQL_ROOT -e "drop database roundcube;"
-mysql -uroot -p$MYSQL_ROOT -e "drop user roundcube@localhost;"
 sed -i -e '/^spfcheck/,+1d' /etc/postfix/master.cf
 sed -i -e '/^dovecot/,+1d' /etc/postfix/master.cf
 sed -i "/^amavisfeed/Q" /etc/postfix/master.cf
