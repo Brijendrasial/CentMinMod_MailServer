@@ -1228,5 +1228,5 @@ start_display
 } 2>&1 | tee /var/log/mailserver.log
 
 echo " "
-echo "Your Installation log is saved at /var/log/ffmpeginstaller.log"$RESET
+echo "Your Installation log is saved at /var/log/mailserver.log"$RESET
 echo " "
