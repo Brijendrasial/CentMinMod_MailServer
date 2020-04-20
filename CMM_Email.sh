@@ -4,6 +4,7 @@
 
 # Scripted by Brijendra Sial @ Bullten Web Hosting Solutions [https://www.bullten.com]
 
+{
 RED='\033[01;31m'
 RESET='\033[0m'
 GREEN='\033[01;32m'
@@ -725,7 +726,7 @@ echo  " "
 function remove_mail_server
 {
 cp -R /home/vmail /home/vmail_old
-yum remove mailx mutt -y
+yum remove mutt -y
 yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
 rm -rf /etc/dovecot
 userdel -r vmail
@@ -1224,3 +1225,8 @@ function dkim_display
         done
 }
 start_display
+} 2>&1 | tee /var/log/mailserver.log
+
+echo " "
+echo "Your Installation log is saved at /var/log/ffmpeginstaller.log"$RESET
+echo " "
