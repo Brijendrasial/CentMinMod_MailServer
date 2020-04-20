@@ -584,11 +584,7 @@ echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RES
 echo  " "
 echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
 echo  " "
-} 2>&1 | tee /var/log/mailserverinstall.log
-
-echo " "
-echo "Your Installation log is saved at /var/log/mailserverinstall.log"$RESET
-echo " "
+}
 
 function dkim_generate
 {
@@ -919,6 +915,7 @@ else
 fi
 }
 
+
 function start_display
 {
         if [ -e "/etc/centminmod" ]; then
@@ -1226,4 +1223,9 @@ function dkim_display
         done
 }
 start_display
-}
+
+} 2>&1 | tee /var/log/mailserverinstall.log
+
+echo " "
+echo "Your Installation log is saved at /var/log/mailserverinstall.log"$RESET
+echo " "
