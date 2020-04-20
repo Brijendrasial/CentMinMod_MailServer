@@ -255,6 +255,7 @@ yum install socat -y
 cd /usr/local/src/centminmod/addons/
 yes | ./acmetool.sh acmeinstall
 /root/.acme.sh/acme.sh --issue --nginx -d $MY_HOST_NAME
+echo " "
 postfix_main_configuration
 }
 
@@ -465,6 +466,7 @@ systemctl enable opendkim
 systemctl restart postfix
 systemctl restart dovecot
 systemctl enable dovecot
+echo " "
 
 setup_amavisd_spamassassin_clamav
 }
@@ -560,6 +562,8 @@ $allowed_header_tests{'multiple'} = 0;
 # Missing some headers. e.g. 'Date:'
 $allowed_header_tests{'missing'} = 0;
 EOF
+
+echo " "
 
 systemctl start clamd@scan
 systemctl enable clamd@scan
@@ -722,6 +726,7 @@ esac
 
 function remove_mail_server
 {
+echo " "
 cp -R /home/vmail /home/vmail_old
 yum remove mutt -y
 yum remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
@@ -1223,7 +1228,3 @@ function dkim_display
 start_display
 
 } 2>&1 | tee /var/log/mailserver.log
-
-echo " "
-echo "Your Installation log is saved at /var/log/mailserver.log"$RESET
-echo " "
