@@ -354,8 +354,9 @@ service auth {
   }
   user = root
 }
-ssl_cert = </etc/pki/dovecot/certs/dovecot.pem
-ssl_key = </etc/pki/dovecot/private/dovecot.pem
+ssl_ca = </root/.acme.sh/$MY_HOST_NAME/ca.cer
+ssl_cert = </root/.acme.sh/$MY_HOST_NAME/fullchain.cer
+ssl_key = </root/.acme.sh/$MY_HOST_NAME/$MY_HOST_NAME.key
 userdb {
   args = uid=5000 gid=5000 home=/home/vmail/%d/%n allow_all_users=yes
   driver = static
