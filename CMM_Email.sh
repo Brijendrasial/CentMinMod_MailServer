@@ -92,8 +92,6 @@ esac
                 fi
 fi
 
-echo -e $GREEN"Initial Checkes are in Progress"$RESET
-echo " "
 if [ -n "$(grep -ir "dovecot.pem" /etc/dovecot/dovecot.conf)" ]; then
         echo " "
         echo -e $YELLOW"Self Signed Certificate is supposed to be Installed"$RESET
