@@ -38,7 +38,7 @@ f=1
 MYSQL_ROOT=$(cat /root/.my.cnf | grep password | cut -d' ' -f1 | cut -d'=' -f2)
 DATABASE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 ROUNDCUBE_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-
+MY_HOST_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf| cut -d':' -f2)
 
 echo " "
 echo -e $GREEN"Initial Checkes are in Progress"$RESET
@@ -91,6 +91,50 @@ esac
 
                 fi
 fi
+
+echo -e $GREEN"Initial Checkes are in Progress"$RESET
+echo " "
+if [ -n "$(grep -ir "dovecot.pem" /etc/dovecot/dovecot.conf)" ]; then
+        echo " "
+        echo -e $YELLOW"Self Signed Certificate is supposed to be Installed"$RESET
+        echo " "
+        read -e -p "$(echo -e $GREEN"Do you Want to Install Letsencrypt SSL For Dovecot Mail Server (y/n)?:"$RESET) " choice
+
+case "$choice" in
+y|Y )
+        echo " "
+        sleep 3
+        echo -e $GREEN"Installing SSL for Dovecot"$RESET
+        echo " "
+        sed -i "/^ssl_cert/i ssl_ca = </root/.acme.sh/${MY_HOST_NAME}/ca.cer" /etc/dovecot/dovecot.conf
+        sed -i "s/\/etc\/pki\/dovecot\/certs\/dovecot.pem/\/root\/.acme.sh\/${MY_HOST_NAME}\/fullchain.cer/g" /etc/dovecot/dovecot.conf
+        sed -i "s/\/etc\/pki\/dovecot\/private\/dovecot.pem/\/root\/.acme.sh\/${MY_HOST_NAME}\/$MY_HOST_NAME.key/g" /etc/dovecot/dovecot.conf
+
+echo " "
+echo -e $GREEN"Installation of Letsencrypt SSL For Dovecot Mail Server Succeded"$RESET
+echo " "
+sleep 2
+
+
+dovecot reload
+
+;;
+n|N )
+        echo " "
+        echo -e $YELLOW"I Am Not Going to Enable SSL Certificate for Dovecot"$RESET
+;;
+* )
+        echo " "
+        echo "Invalid Option Selected"
+        echo " "
+;;
+esac
+
+else
+        echo -e $YELLOW"SSL Certificate for Dovecot already exist"$RESET
+        echo " "
+fi
+
 
 function input_data
 {
