@@ -295,7 +295,8 @@ function ssl_cert
 yum install socat -y
 cd /usr/local/src/centminmod/addons/
 yes | ./acmetool.sh acmeinstall
-/root/.acme.sh/acme.sh --issue --nginx -d $MY_HOST_NAME
+#/root/.acme.sh/acme.sh --issue --nginx -d $MY_HOST_NAME
+/root/.acme.sh/acme.sh --issue -d $MY_HOST_NAME -w /usr/local/nginx/html
 echo " "
 postfix_main_configuration
 }
