@@ -608,6 +608,9 @@ EOF
 
 echo " "
 
+mkdir -p /run/clamd.scan
+chown -R clamscan:clamscan clamd.scan
+
 systemctl start clamd@scan
 systemctl enable clamd@scan
 
