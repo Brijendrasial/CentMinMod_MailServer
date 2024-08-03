@@ -745,6 +745,7 @@ wget -P /usr/local/nginx/html https://github.com/roundcube/roundcubemail/release
 tar -C /usr/local/nginx/html -zxvf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
 rm -rf /usr/local/nginx/html/roundcubemail-$rndc*.tar.gz
 mv /usr/local/nginx/html/roundcubemail-$rndc* /usr/local/nginx/html/roundcube-$rndc
+/usr/local/nginx/html/roundcube/bin/install-jsdeps.sh
 /usr/local/nginx/html/roundcube-$rndc/bin/installto.sh /usr/local/nginx/html/roundcube << EOF
 y
 EOF
