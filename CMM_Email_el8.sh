@@ -1246,7 +1246,7 @@ function dkim_display
              echo " "
              echo -e $GREEN"2) Regenerate DKIM Key For A Domain"$RESET
              echo " "
-             echo -e $GREEN"4) Back To Previous Screen"$RESET
+             echo -e $GREEN"3) Back To Previous Screen"$RESET
              echo " "
              #read inputss
 
