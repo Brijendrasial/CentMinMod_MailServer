@@ -43,6 +43,50 @@ MY_HOST_NAME=$(grep -ir "MYHOSTNAME" /etc/centminmod/cmmemailconfig/email.conf| 
 echo " "
 echo -e $GREEN"Initial Checkes are in Progress"$RESET
 echo " "
+
+if [ -n "$(grep -ir "inet:127.0.0.1:8891" /etc/postfix/main.cf)" ]; then
+        if [ -z "$(grep -ir "inet:127.0.0.1:8893" /etc/postfix/main.cf)" ]; then
+        echo " "
+        echo -e $YELLOW"OpenDKIM is supposed to be Installed"$RESET
+        echo " "
+        echo -e $RED"opendmarc is not installed"$RESET
+        echo " "
+        echo -e $GEREEN"Installing opendmarc now"$RESET
+        dnf install opendmarc -y
+
+cat >> /etc/opendmarc.conf <<EOF
+AuthservID HOSTNAME
+IgnoreAuthenticatedClients true
+IgnoreHosts /etc/opendmarc/ignore.hosts
+RejectFailures true
+RequiredHeaders true
+TrustedAuthservIDs HOSTNAME
+EOF
+
+        touch /etc/opendmarc/ignore.hosts
+
+        echo " "
+        echo -e $GEREEN"Enabling DMARC in Postfix"$RESET
+        echo " "
+        sed -i 's/\inet:127.0.0.1:8891\b/&,inet:127.0.0.1:8893/' /etc/postfix/main.cf
+        echo " "
+        systemctl restart postfix && systemctl enable postfix
+        echo " "
+        echo -e $GEREEN"DMARC installed successfully"$RESET
+        echo " "
+        echo -e $GEREEN"Restarting opendmarc & Postfix"$RESET
+        systemctl restart opendmarc && systemctl restart postfix
+        echo " "
+        echo -e $YELLOW"Your DMARC Details for domain is _dmarc TXT v=DMARC1; p=none; rua=mailto:; ruf=mailto:; fo=1"$RESET
+        echo " "
+        else
+        echo " "
+        echo -e $GREEN"Mail Server seems to be installed with DMARC"$RESET
+        echo " "
+
+        fi
+fi
+
 if [ -n "$(grep -ir "smtpd_milters" /etc/postfix/main.cf)" ]; then
         echo " "
         echo -e $YELLOW"Mail Server is supposed to be Installed"$RESET
@@ -132,6 +176,8 @@ else
         echo -e $YELLOW"SSL Certificate for Dovecot already exist"$RESET
         echo " "
 fi
+
+
 
 
 function input_data
@@ -512,6 +558,33 @@ systemctl restart postfix
 systemctl restart dovecot
 systemctl enable dovecot
 echo " "
+echo -e $GEREEN"Installing opendmarc now"$RESET
+dnf install opendmarc -y
+
+cat >> /etc/opendmarc.conf <<EOF
+AuthservID HOSTNAME
+IgnoreAuthenticatedClients true
+IgnoreHosts /etc/opendmarc/ignore.hosts
+RejectFailures true
+RequiredHeaders true
+TrustedAuthservIDs HOSTNAME
+EOF
+
+        touch /etc/opendmarc/ignore.hosts
+
+        echo " "
+        echo -e $GEREEN"Enabling DMARC in Postfix"$RESET
+        echo " "
+        sed -i 's/\inet:127.0.0.1:8891\b/&,inet:127.0.0.1:8893/' /etc/postfix/main.cf
+        echo " "
+        echo -e $GEREEN"DMARC installed successfully"$RESET
+        echo " "
+        echo -e $GEREEN"Restarting opendmarc && postfix"$RESET
+        systemctl restart opendmarc && systemctl restart postfix
+        systemctl enable opendmarc
+        echo " "
+
+
 
 setup_amavisd_spamassassin_clamav
 }
@@ -636,6 +709,8 @@ echo -e $YELLOW"MX record To Be Set As Follows $DOMAIN_NAME 0 $MY_HOST_NAME"$RES
 echo  " "
 echo -e $YELLOW"Your Server Installation Config files are saved in /etc/centminmod/cmmemailconfig/email.conf"$RESET
 echo  " "
+echo -e $YELLOW"DMARC TXT Record To Be Set As _dmarc.$DOMAIN_NAME v=DMARC1; p=none; rua=mailto:; ruf=mailto:; fo=1"$RESET
+echo " "
 }
 
 function dkim_generate
@@ -781,7 +856,7 @@ function remove_mail_server
 echo " "
 cp -R /home/vmail /home/vmail_old
 dnf remove mutt -y
-dnf remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd -y
+dnf remove dovecot dovecot-mysql cyrus-sasl cyrus-sasl-devel pypolicyd-spf spamassassin amavisd-new clamav-server clamav-data clamav-update clamav-filesystem clamav clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd opendmarc -y
 rm -rf /etc/dovecot
 userdel -r vmail
 userdel -r spamd
