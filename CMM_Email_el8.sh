@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mail Server Installer Script for CentMinMod Installer (EL8) [CMM]
+# Mail Server Installer Script for CentMinMod Installer (EL8 & EL9) [CMM]
 
 # Scripted by Brijendra Sial @ Bullten Web Hosting Solutions [https://www.bullten.com]
 
